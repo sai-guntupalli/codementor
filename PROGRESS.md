@@ -1,27 +1,29 @@
 # CodeMentor — Progress
 
 ## Current Status
-Phase 1 (Project Scaffold) complete. FastAPI backend and Next.js frontend skeletons are running. Ready to start Phase 2: Database Schema.
+Phase 2 (Database Schema) complete. All 13 tables live in Supabase. Plans and prompts seeded. Ready for Phase 3: Backend Core API endpoints.
 
 ## Completed
 - [2026-05-15] Design spec approved (`docs/superpowers/specs/2026-05-15-codementor-design.md`)
-- [2026-05-15] Phase 1: Project scaffold
-  - FastAPI backend (Python 3.12, uv, health endpoint, ruff, pytest)
-  - Next.js 14 frontend (TypeScript, Tailwind CSS, shadcn/ui)
-  - Root + backend Makefile with install/dev/test/lint/format/build targets
-  - README.md and PROGRESS.md
+- [2026-05-15] Phase 1: Project scaffold — FastAPI backend, Next.js frontend, Makefile, README
+- [2026-05-15] Phase 2: Database schema
+  - SQLAlchemy models for all 13 tables (4 groups: identity, billing, learning, content)
+  - Alembic migration applied to Supabase PostgreSQL 17
+  - Seeded: 2 plans (Free, Pro), 6 prompt templates
+  - 5 tests passing (health + DB connectivity + schema + seed verification)
 
 ## In Progress
-- Phase 2: Database Schema (Supabase + 13-table migration)
+- Phase 3: Backend Core API endpoints
 
 ## Next Steps
-1. Set up Supabase project — obtain `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`
-2. Create branch `feat/database-schema`
-3. Add Alembic to backend; write migration for all 13 tables from the design spec
-4. Seed `problems` table with 10 curated Python problems and 5 SQL problems
-5. Seed `prompts` table with all 6 prompt templates from the spec
-6. Write integration tests for DB connectivity
-7. Open PR → merge → move to Phase 3 (Backend Core API endpoints)
+1. Create branch `feat/backend-core`
+2. Add Pydantic response schemas for problems, submissions, users
+3. Implement `GET /problems` (paginated, filtered by language/difficulty/topic)
+4. Implement `GET /problems/{id}`
+5. Implement `POST /submissions` (creates submission record)
+6. Implement `GET /users/me` (current user profile)
+7. Wire `get_db` dependency into all endpoints
+8. Open PR → merge → Phase 4 (Auth)
 
 ## Blockers
 - None
