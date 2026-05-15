@@ -93,22 +93,46 @@
 
 ## Traceability
 
-Populated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| API-01–07 | — | Pending |
-| AUTH-01–05 | — | Pending |
-| LLM-01–04 | — | Pending |
-| PRAC-01–09 | — | Pending |
-| SKILL-01–03 | — | Pending |
-| SCR-01–04 | — | Pending |
+| API-01 | Phase 3 | Pending |
+| API-02 | Phase 3 | Pending |
+| API-03 | Phase 3 | Pending |
+| API-04 | Phase 3 | Pending |
+| API-05 | Phase 3 | Pending |
+| API-06 | Phase 3 | Pending |
+| API-07 | Phase 3 | Pending |
+| AUTH-01 | Phase 3 | Pending |
+| AUTH-02 | Phase 3 | Pending |
+| AUTH-03 | Phase 3 | Pending |
+| AUTH-04 | Phase 3 | Pending |
+| AUTH-05 | Phase 3 | Pending |
+| LLM-01 | Phase 4 | Pending |
+| LLM-02 | Phase 4 | Pending |
+| LLM-03 | Phase 4 | Pending |
+| LLM-04 | Phase 4 | Pending |
+| PRAC-01 | Phase 5 | Pending |
+| PRAC-02 | Phase 5 | Pending |
+| PRAC-03 | Phase 5 | Pending |
+| PRAC-04 | Phase 5 | Pending |
+| PRAC-05 | Phase 5 | Pending |
+| PRAC-06 | Phase 5 | Pending |
+| PRAC-07 | Phase 5 | Pending |
+| PRAC-08 | Phase 5 | Pending |
+| PRAC-09 | Phase 6 | Pending |
+| SKILL-01 | Phase 6 | Pending |
+| SKILL-02 | Phase 6 | Pending |
+| SKILL-03 | Phase 6 | Pending |
+| SCR-01 | Phase 7 | Pending |
+| SCR-02 | Phase 7 | Pending |
+| SCR-03 | Phase 7 | Pending |
+| SCR-04 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 33 total
-- Mapped to phases: 0 (roadmap not yet created)
-- Unmapped: 33 ⚠️
+- v1 requirements: 32 total
+- Mapped to phases: 32
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-15*
-*Last updated: 2026-05-15 after initial definition*
+*Last updated: 2026-05-15 — traceability populated after roadmap creation*
