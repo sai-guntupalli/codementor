@@ -8,5 +8,11 @@ class Settings(BaseSettings):
     debug: bool = False
     frontend_url: str = "http://localhost:3000"
 
+    database_url: str = ""
+    supabase_url: str = ""
+    supabase_key: str = ""
+    supabase_jwt_secret: str = ""
+    openrouter_api_key: str = ""
+
 
 settings = Settings()
