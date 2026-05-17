@@ -59,3 +59,22 @@ def test_problem_solution_model_exists():
     assert hasattr(ProblemSolution, "time_complexity")
     assert hasattr(ProblemSolution, "space_complexity")
     assert hasattr(ProblemSolution, "explanation")
+
+
+def test_problem_out_has_new_fields():
+    from schemas.problem import ProblemOut
+    fields = ProblemOut.model_fields
+    assert "slug" in fields
+    assert "external_id" in fields
+    assert "source_url" in fields
+    assert "hints" in fields
+
+
+def test_problem_solution_out_schema():
+    from schemas.problem import ProblemSolutionOut
+    fields = ProblemSolutionOut.model_fields
+    assert "problem_id" in fields
+    assert "variant" in fields
+    assert "code" in fields
+    assert "is_primary" in fields
+    assert "time_complexity" in fields

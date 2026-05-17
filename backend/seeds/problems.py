@@ -9,11 +9,13 @@ SAMPLE_PROBLEMS = [
         "language": "python",
         "difficulty": "easy",
         "topic": ["basics", "io"],
-        "examples": {
-            "input": "(none)",
-            "output": "Hello, CodeMentor!",
-            "explanation": "Your program should print exactly one line matching the expected output.",
-        },
+        "examples": [
+            {
+                "input": "(none)",
+                "output": "Hello, CodeMentor!",
+                "explanation": "Your program should print exactly one line matching the expected output.",
+            }
+        ],
         "constraints": "Use exactly one print statement.",
         "source": "curated",
         "is_published": True,
