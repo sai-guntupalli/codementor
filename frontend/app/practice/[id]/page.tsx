@@ -25,12 +25,20 @@ import {
   streamTeach,
 } from "@/lib/practice-api";
 
+type Example = {
+  input: string;
+  output: string;
+  explanation?: string;
+};
+
 type Problem = {
   id: string;
   title: string;
   description: string;
   language: string;
   difficulty: string;
+  examples: Example[];
+  constraints: string | null;
 };
 
 type ProblemListItem = {
@@ -207,6 +215,18 @@ export default function PracticePage() {
 
   async function handleTeach() {
     if (!problem) return;
+
+    const codeLines = code.split("\n").filter((l) => {
+      const t = l.trim();
+      return t && !t.startsWith("#") && !t.startsWith("--");
+    });
+    if (codeLines.length === 0) {
+      setError("Write some code first — teach explains your actual implementation.");
+      setAiPanelOpen(true);
+      setActiveTab("teach");
+      return;
+    }
+
     const token = await getToken();
     if (!token) return;
 
@@ -358,7 +378,7 @@ export default function PracticePage() {
 
         <section className="flex min-w-0 flex-1 flex-col bg-surface/50">
           {descOpen && (
-            <div className="max-h-44 shrink-0 overflow-y-auto border-b border-border/80 bg-card/60 px-5 py-4 backdrop-blur-sm">
+            <div className="max-h-72 shrink-0 overflow-y-auto border-b border-border/80 bg-card/60 px-5 py-4 backdrop-blur-sm">
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Problem
@@ -372,6 +392,41 @@ export default function PracticePage() {
                 </button>
               </div>
               <MarkdownContent content={problem.description} />
+
+              {problem.examples && problem.examples.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  {problem.examples.map((ex, i) => (
+                    <div key={i} className="rounded-lg border border-border/60 bg-muted/40 p-3 text-xs">
+                      <p className="mb-1.5 font-semibold text-foreground/70">Example {i + 1}</p>
+                      <div className="space-y-1 font-mono">
+                        <p>
+                          <span className="text-muted-foreground">Input: </span>
+                          <span className="text-foreground">{ex.input}</span>
+                        </p>
+                        <p>
+                          <span className="text-muted-foreground">Output: </span>
+                          <span className="text-foreground">{ex.output}</span>
+                        </p>
+                        {ex.explanation && (
+                          <p className="mt-1 font-sans text-muted-foreground">
+                            <span className="font-medium">Explanation: </span>
+                            {ex.explanation}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {problem.constraints && (
+                <div className="mt-4">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Constraints
+                  </p>
+                  <MarkdownContent content={problem.constraints} />
+                </div>
+              )}
             </div>
           )}
           {!descOpen && (
