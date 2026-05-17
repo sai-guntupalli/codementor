@@ -143,3 +143,52 @@ def test_seed_skips_duplicates(db):
 
     inserted = _insert_problem_with_solution(db, item)
     assert inserted is False
+
+
+def test_generate_solution_cached(auth_client, db):
+    from models.learning import Problem, ProblemSolution
+
+    problem = Problem(
+        title="Cache Test", description="Test.", difficulty="easy",
+        language="python", source="curated", is_published=True,
+    )
+    db.add(problem)
+    db.flush()
+    solution = ProblemSolution(
+        problem_id=problem.id, language="python", variant="optimal",
+        code="def solve(): return 42", is_primary=False,
+    )
+    db.add(solution)
+    db.commit()
+
+    resp = auth_client.post(
+        f"/problems/{problem.id}/solutions/generate?variant=optimal",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["variant"] == "optimal"
+    assert data["code"] == "def solve(): return 42"
+
+
+def test_generate_solution_invalid_variant(auth_client, db):
+    from models.learning import Problem
+
+    problem = Problem(
+        title="Variant Test", description="Test.", difficulty="easy",
+        language="python", source="curated", is_published=True,
+    )
+    db.add(problem)
+    db.commit()
+
+    resp = auth_client.post(
+        f"/problems/{problem.id}/solutions/generate?variant=invalid",
+    )
+    assert resp.status_code == 422
+
+
+def test_generate_solution_problem_not_found(auth_client):
+    import uuid
+    resp = auth_client.post(
+        f"/problems/{uuid.uuid4()}/solutions/generate?variant=optimal",
+    )
+    assert resp.status_code == 404
