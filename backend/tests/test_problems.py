@@ -78,3 +78,68 @@ def test_problem_solution_out_schema():
     assert "code" in fields
     assert "is_primary" in fields
     assert "time_complexity" in fields
+
+
+def test_seed_problems_dataset_inserts_records(db):
+    from seeds.problems_dataset import _insert_problem_with_solution
+
+    item = {
+        "external_id": 99999,
+        "title": "Test Problem",
+        "slug": "test-problem",
+        "description": "Given a number, return it.",
+        "difficulty": "easy",
+        "language": "python",
+        "topic": ["math"],
+        "examples": [{"input": "1", "output": "1", "explanation": ""}],
+        "constraints": None,
+        "hints": None,
+        "source_url": "https://example.com/99999",
+        "source": "imported",
+        "solution_code": "class Solution:\n    def solve(self, n): return n",
+        "time_complexity": "O(1)",
+        "space_complexity": "O(1)",
+    }
+
+    _insert_problem_with_solution(db, item)
+    db.commit()
+
+    from models.learning import Problem, ProblemSolution
+    problem = db.query(Problem).filter(Problem.external_id == 99999).first()
+    assert problem is not None
+    assert problem.title == "Test Problem"
+    assert problem.topic == ["math"]
+
+    solution = db.query(ProblemSolution).filter(ProblemSolution.problem_id == problem.id).first()
+    assert solution is not None
+    assert solution.variant == "original"
+    assert solution.is_primary is True
+    assert solution.time_complexity == "O(1)"
+
+
+def test_seed_skips_duplicates(db):
+    from seeds.problems_dataset import _insert_problem_with_solution
+
+    item = {
+        "external_id": 88888,
+        "title": "Duplicate Problem",
+        "slug": "duplicate-problem",
+        "description": "Test description.",
+        "difficulty": "easy",
+        "language": "python",
+        "topic": [],
+        "examples": [],
+        "constraints": None,
+        "hints": None,
+        "source_url": None,
+        "source": "imported",
+        "solution_code": "pass",
+        "time_complexity": None,
+        "space_complexity": None,
+    }
+
+    _insert_problem_with_solution(db, item)
+    db.commit()
+
+    inserted = _insert_problem_with_solution(db, item)
+    assert inserted is False
