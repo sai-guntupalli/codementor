@@ -13,17 +13,38 @@ class Problem(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title: Mapped[str] = mapped_column(String, nullable=False)
+    slug: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     description: Mapped[str] = mapped_column(Text, nullable=False)
-    language: Mapped[str] = mapped_column(String, nullable=False)  # python|sql
     difficulty: Mapped[str] = mapped_column(String, nullable=False)  # easy|medium|hard
+    language: Mapped[str] = mapped_column(String, nullable=False)  # python|sql
     topic: Mapped[list] = mapped_column(ARRAY(String), default=[])
-    examples: Mapped[dict] = mapped_column(JSONB, default={})
+    examples: Mapped[list] = mapped_column(JSONB, default=[])
     constraints: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hints: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    external_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    source_url: Mapped[str | None] = mapped_column(String, nullable=True)
     # source: curated|user|llm
     source: Mapped[str] = mapped_column(String, nullable=False, default="curated")
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     org_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     is_published: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ProblemSolution(Base):
+    __tablename__ = "problem_solutions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    problem_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    language: Mapped[str] = mapped_column(String, nullable=False)
+    variant: Mapped[str] = mapped_column(String, nullable=False)
+    code: Mapped[str] = mapped_column(Text, nullable=False)
+    time_complexity: Mapped[str | None] = mapped_column(String, nullable=True)
+    space_complexity: Mapped[str | None] = mapped_column(String, nullable=True)
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

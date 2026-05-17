@@ -38,3 +38,24 @@ def test_problems_requires_auth(client: TestClient):
     """GET /problems without Authorization header returns 401 (AUTH-04)."""
     response = client.get("/problems")
     assert response.status_code == 401
+
+
+def test_problem_has_new_fields():
+    from models.learning import Problem
+
+    assert hasattr(Problem, "slug")
+    assert hasattr(Problem, "external_id")
+    assert hasattr(Problem, "source_url")
+    assert hasattr(Problem, "hints")
+
+
+def test_problem_solution_model_exists():
+    from models.learning import ProblemSolution
+
+    assert hasattr(ProblemSolution, "problem_id")
+    assert hasattr(ProblemSolution, "variant")
+    assert hasattr(ProblemSolution, "code")
+    assert hasattr(ProblemSolution, "is_primary")
+    assert hasattr(ProblemSolution, "time_complexity")
+    assert hasattr(ProblemSolution, "space_complexity")
+    assert hasattr(ProblemSolution, "explanation")
