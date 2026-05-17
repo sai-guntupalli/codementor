@@ -1,0 +1,4 @@
+# Seed pipeline data (large, generated)
+seeds/data/
+seeds/data/
+*.db
