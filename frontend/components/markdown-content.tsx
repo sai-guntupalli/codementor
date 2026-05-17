@@ -67,19 +67,19 @@ const mdComponents: Components = {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           style={codeTheme as any}
           PreTag="div"
-          wrapLongLines
           customStyle={{
             margin: 0,
             padding: "0.875rem 1rem",
             borderRadius: "0.5rem",
             border: "1px solid oklch(0.35 0.04 275 / 0.4)",
             background: "oklch(0.22 0.04 275)",
-            overflow: "auto",
+            overflowX: "auto",
+            display: "block",
             maxWidth: "100%",
             fontSize: "0.8125rem",
             lineHeight: "1.6",
           }}
-          codeTagProps={{ style: { fontFamily: "inherit" } }}
+          codeTagProps={{ style: { fontFamily: "inherit", display: "block" } }}
         >
           {String(children).replace(/\n$/, "")}
         </SyntaxHighlighter>
