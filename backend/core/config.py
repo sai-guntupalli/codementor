@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     database_url: str = ""
     supabase_url: str = ""
     supabase_key: str = ""
+    supabase_jwt_secret: str = ""
+    openrouter_api_key: str = ""
 
 
 settings = Settings()

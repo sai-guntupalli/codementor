@@ -1,0 +1,15 @@
+default_model: anthropic/claude-sonnet-4-5
+
+models:
+  - id: anthropic/claude-sonnet-4-5
+    name: Claude Sonnet 4.5
+    tier: free
+  - id: openai/gpt-4o
+    name: GPT-4o
+    tier: pro
+  - id: google/gemini-2.0-flash
+    name: Gemini 2.0 Flash
+    tier: free
+  - id: meta-llama/llama-3.3-70b-instruct
+    name: Llama 3.3 70B
+    tier: free

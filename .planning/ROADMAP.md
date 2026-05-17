@@ -53,7 +53,14 @@ CodeMentor ships in 7 phases. Phases 1 and 2 are complete (scaffold + DB schema)
   4. `GET /problems` returns paginated results filterable by language, difficulty, and topic
   5. `POST /submissions` creates a submission record and `GET /users/me` returns the current user's profile
   6. First-time user is prompted to complete profile setup (display name, level, default language)
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Test scaffold (Wave 0): conftest + 5 test stub files covering all 12 requirements
+- [ ] 03-02-PLAN.md — Backend auth foundation: config, deps, schemas, auth router, main.py wiring
+- [ ] 03-03-PLAN.md — Frontend auth: Supabase packages, server/client utilities, proxy.ts, login/signup/profile-setup pages
+- [ ] 03-04-PLAN.md — Problems + curriculum endpoints: GET /problems, GET /problems/{id}, GET /curriculum-paths, GET /curriculum-paths/{id}
+- [ ] 03-05-PLAN.md — Users + submissions endpoints: GET /users/me, PATCH /users/me, POST /submissions
 
 ### Phase 4: LLM Abstraction Layer
 **Goal**: The platform can route LLM calls, render prompts from DB templates, stream responses via SSE, and log every call
@@ -109,7 +116,7 @@ CodeMentor ships in 7 phases. Phases 1 and 2 are complete (scaffold + DB schema)
 |-------|----------------|--------|-----------|
 | 1. Scaffold | - | Complete | 2026-05-15 |
 | 2. Database Schema | - | Complete | 2026-05-15 |
-| 3. Backend Core | 0/TBD | Not started | - |
+| 3. Backend Core | 0/5 | Not started | - |
 | 4. LLM Abstraction Layer | 0/TBD | Not started | - |
 | 5. Practice Flow | 0/TBD | Not started | - |
 | 6. Skill Tracking + Custom Problems | 0/TBD | Not started | - |
