@@ -106,3 +106,40 @@ def test_make_slug_with_numbers():
 def test_make_slug_with_special_chars():
     assert make_slug("N-Queens II") == "n-queens-ii"
     assert make_slug("3Sum Closest") == "3sum-closest"
+
+
+def test_classify_batch_returns_list_of_lists():
+    from unittest.mock import MagicMock, patch
+
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "choices": [{"message": {"content": '["array","hash-map"]'}}]
+    }
+
+    descriptions = ["Given an array of integers, return indices of the two numbers..."]
+
+    with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test_key"}):
+        with patch("seeds.enrich.httpx") as mock_httpx:
+            mock_httpx.post.return_value = mock_response
+            from seeds.enrich import classify_batch
+            result = classify_batch(descriptions)
+
+    assert isinstance(result, list)
+    assert all(isinstance(tags, list) for tags in result)
+
+
+def test_classify_batch_parses_nested_json():
+    from unittest.mock import MagicMock, patch
+
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
+        "choices": [{"message": {"content": '[["array","hash-map"],["dynamic-programming"]]'}}]
+    }
+
+    with patch.dict("os.environ", {"OPENROUTER_API_KEY": "test_key"}):
+        with patch("seeds.enrich.httpx") as mock_httpx:
+            mock_httpx.post.return_value = mock_response
+            from seeds.enrich import classify_batch
+            result = classify_batch(["desc1", "desc2"])
+
+    assert result == [["array", "hash-map"], ["dynamic-programming"]]
