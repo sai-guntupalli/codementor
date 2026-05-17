@@ -51,8 +51,23 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Loading your workspace…</p>
+      <main className="min-h-screen bg-background">
+        <AppHeader />
+        <div className="mx-auto max-w-3xl px-6 py-12 md:py-16">
+          <div className="h-3.5 w-24 animate-pulse rounded-full bg-muted" />
+          <div className="mt-3 h-9 w-64 animate-pulse rounded-xl bg-muted" />
+          <div className="mt-3 h-4 w-96 max-w-full animate-pulse rounded-full bg-muted" />
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-14 animate-pulse rounded-xl border border-border/50 bg-muted/40" />
+            ))}
+          </div>
+          <div className="mt-6 h-36 animate-pulse rounded-2xl border border-border/50 bg-muted/40" />
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="h-32 animate-pulse rounded-2xl border border-border/50 bg-muted/40" />
+            <div className="h-32 animate-pulse rounded-2xl border border-border/50 bg-muted/40" />
+          </div>
+        </div>
       </main>
     );
   }

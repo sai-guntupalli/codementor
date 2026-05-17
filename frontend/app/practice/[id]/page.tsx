@@ -96,7 +96,7 @@ export default function PracticePage() {
       try {
         const [p, list] = await Promise.all([
           apiFetch<Problem>(`/problems/${id}`, { token }),
-          apiFetch<{ items: ProblemListItem[] }>("/problems?page_size=50", { token }),
+          apiFetch<{ items: ProblemListItem[] }>("/problems?page_size=20", { token }),
         ]);
         setProblem(p);
         setProblemList(list.items);
@@ -310,8 +310,25 @@ export default function PracticePage() {
 
   if (loading) {
     return (
-      <main className="flex h-screen items-center justify-center">
-        <p className="text-muted-foreground">Loading…</p>
+      <main className="flex h-screen flex-col bg-background">
+        <AppHeader />
+        <div className="flex min-h-0 flex-1">
+          <aside className="flex w-60 shrink-0 flex-col border-r border-border/80 bg-sidebar p-2 gap-1">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="h-12 animate-pulse rounded-lg bg-muted/60" />
+            ))}
+          </aside>
+          <section className="flex flex-1 flex-col">
+            <div className="h-28 shrink-0 border-b border-border/80 bg-card/60 px-5 py-4 space-y-2">
+              <div className="h-3 w-48 animate-pulse rounded-full bg-muted" />
+              <div className="h-3 w-80 max-w-full animate-pulse rounded-full bg-muted" />
+              <div className="h-3 w-64 max-w-full animate-pulse rounded-full bg-muted" />
+            </div>
+            <div className="flex-1 p-5">
+              <div className="h-full animate-pulse rounded-xl bg-muted/30" />
+            </div>
+          </section>
+        </div>
       </main>
     );
   }
