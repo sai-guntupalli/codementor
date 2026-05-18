@@ -31,6 +31,11 @@ export function CodeEditor({ value, onChange, language, className }: CodeEditorP
         value={value}
         onChange={(v) => onChange(v ?? "")}
         theme="vs-dark"
+        loading={
+          <div className="flex h-full w-full items-center justify-center bg-[#1e1e1e]">
+            <span className="text-xs text-neutral-500">Loading editor…</span>
+          </div>
+        }
         options={{
           minimap: { enabled: false },
           fontSize: 14,

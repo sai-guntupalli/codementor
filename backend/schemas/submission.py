@@ -24,3 +24,14 @@ class SubmissionOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class SubmissionHistoryItem(BaseModel):
+    id: uuid.UUID
+    problem_id: uuid.UUID
+    problem_title: str
+    language: str
+    score: float | None
+    hints_used: int
+    solution_viewed: bool
+    created_at: datetime

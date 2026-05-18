@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { MarkdownContent } from "@/components/markdown-content";
 import { cn } from "@/lib/utils";
-import { PanelRightClose, Sparkles, Zap } from "lucide-react";
+import { Loader2, PanelRightClose, Sparkles, Zap } from "lucide-react";
 
 export type AiTab = "review" | "hints" | "solution" | "teach" | "chat";
 
@@ -123,10 +123,13 @@ export function AiPanel({
                 </span>
               </div>
             )}
+            {loading && !review && (
+              <LoadingState text="Reviewing your code…" />
+            )}
             {review ? (
               <MarkdownContent content={review} />
             ) : (
-              <EmptyState text="Submit code to see a short verdict and fixes (if needed)." />
+              !loading && <EmptyState text="Submit code to see a short verdict and fixes (if needed)." />
             )}
           </div>
         )}
@@ -177,12 +180,20 @@ export function AiPanel({
               ))}
             </select>
             <Button size="sm" disabled={loading} onClick={onRequestSolution}>
-              Show solution
+              {loading ? (
+                <>
+                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                "Show solution"
+              )}
             </Button>
+            {loading && !solution && <LoadingState text="Generating solution…" />}
             {solution ? (
               <MarkdownContent content={solution} />
             ) : (
-              <EmptyState text="Choose a depth level, then request a solution." />
+              !loading && <EmptyState text="Choose a depth level, then request a solution." />
             )}
           </div>
         )}
@@ -199,12 +210,20 @@ export function AiPanel({
               <option value="eli5">Explain like I&apos;m 10</option>
             </select>
             <Button size="sm" disabled={loading} onClick={onRequestTeach}>
-              Teach me this code
+              {loading ? (
+                <>
+                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  Explaining…
+                </>
+              ) : (
+                "Teach me this code"
+              )}
             </Button>
+            {loading && !teach && <LoadingState text="Generating explanation…" />}
             {teach ? (
               <MarkdownContent content={teach} />
             ) : (
-              <EmptyState text="Line-by-line explanation of your current editor code." />
+              !loading && <EmptyState text="Write some code then click 'Teach me this code' for a line-by-line explanation." />
             )}
           </div>
         )}
@@ -257,5 +276,14 @@ function EmptyState({ text }: { text: string }) {
     <p className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-6 text-center text-sm leading-relaxed text-muted-foreground">
       {text}
     </p>
+  );
+}
+
+function LoadingState({ text }: { text: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-dashed border-border bg-muted/30 px-4 py-6">
+      <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
+      <p className="text-sm text-muted-foreground">{text}</p>
+    </div>
   );
 }

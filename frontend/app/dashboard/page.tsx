@@ -3,43 +3,60 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, LogOut, Sparkles, Star, Zap } from "lucide-react";
-import { AppHeader } from "@/components/layout/app-header";
+import { BookOpen, ExternalLink, LogOut, Sparkles, Star, Zap } from "lucide-react";
+import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { getValidatedAccessToken } from "@/lib/auth-session";
-import { apiFetch, type UserOut } from "@/lib/api";
+import { apiFetch, type UserOut, type SubmissionHistoryItem } from "@/lib/api";
+import { difficultyBadgeVariant } from "@/lib/tags";
+
+type ProblemItem = {
+  id: string;
+  title: string;
+  language: string;
+  difficulty: string;
+  topic: string[];
+};
+
+type ProblemList = { items: ProblemItem[]; total: number };
 
 export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserOut | null>(null);
+  const [recentSubmissions, setRecentSubmissions] = useState<SubmissionHistoryItem[]>([]);
+  const [recommendedProblems, setRecommendedProblems] = useState<ProblemItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadProfile() {
+    async function load() {
       const supabase = createClient();
       const token = await getValidatedAccessToken(supabase);
-
       if (!token) {
         router.replace("/login");
         return;
       }
-
       try {
-        const user = await apiFetch<UserOut>("/users/me", { token });
+        const [user, submissions, problems] = await Promise.all([
+          apiFetch<UserOut>("/users/me", { token }),
+          apiFetch<SubmissionHistoryItem[]>("/submissions/me?limit=3", { token }),
+          apiFetch<ProblemList>("/problems?page_size=3", { token }),
+        ]);
         if (!user.is_profile_complete) {
           router.replace("/profile/setup");
           return;
         }
         setProfile(user);
+        setRecentSubmissions(submissions);
+        setRecommendedProblems(problems.items);
       } catch {
         router.replace("/login");
       } finally {
         setLoading(false);
       }
     }
-
-    loadProfile();
+    load();
   }, [router]);
 
   async function handleLogout() {
@@ -51,9 +68,17 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Loading your workspace…</p>
-      </main>
+      <AppShell>
+        <div className="mx-auto max-w-3xl px-6 py-12">
+          <div className="h-3.5 w-24 animate-pulse rounded-full bg-muted" />
+          <div className="mt-3 h-9 w-64 animate-pulse rounded-xl bg-muted" />
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-14 animate-pulse rounded-xl border border-border/50 bg-muted/40" />
+            ))}
+          </div>
+        </div>
+      </AppShell>
     );
   }
 
@@ -62,22 +87,20 @@ export default function DashboardPage() {
   ).sort(([, a], [, b]) => b - a);
 
   return (
-    <main className="min-h-screen bg-background">
-      <AppHeader
-        actions={
-          <Button variant="outline" size="sm" onClick={handleLogout}>
-            <LogOut className="mr-2 size-4" />
-            Log out
-          </Button>
-        }
-      />
+    <AppShell>
+      <div className="flex items-center justify-end border-b border-border/80 px-6 py-3">
+        <Button variant="outline" size="sm" onClick={handleLogout}>
+          <LogOut className="mr-2 size-4" />
+          Log out
+        </Button>
+      </div>
 
-      <div className="mx-auto max-w-3xl px-6 py-12 md:py-16">
+      <div className="mx-auto max-w-3xl px-6 py-10">
         <p className="text-sm font-medium text-primary">Welcome back</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
+        <h1 className="mt-1 text-3xl font-bold tracking-tight md:text-4xl">
           {profile?.display_name ? `Hi, ${profile.display_name}` : "Your coding journey"}
         </h1>
-        <p className="mt-3 max-w-xl text-base leading-relaxed text-muted-foreground">
+        <p className="mt-2 max-w-xl text-base leading-relaxed text-muted-foreground">
           Practice problems, get instant AI feedback, and level up with hints tailored to your
           profile.
         </p>
@@ -104,7 +127,7 @@ export default function DashboardPage() {
         {/* Skill breakdown */}
         {skillEntries.length > 0 && (
           <div className="mt-6 rounded-2xl border border-border/80 bg-card p-5 shadow-card">
-            <h2 className="mb-3 text-sm font-semibold text-foreground">Skill progress</h2>
+            <h2 className="mb-3 text-sm font-semibold">Skill progress</h2>
             <ul className="space-y-2.5">
               {skillEntries.slice(0, 6).map(([topic, level]) => (
                 <li key={topic} className="flex items-center gap-3">
@@ -126,32 +149,102 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Action cards */}
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <Link
-            href="/problems"
-            className="group rounded-2xl border border-border/80 bg-card p-6 shadow-card transition-all hover:border-primary/30 hover:shadow-lg"
-          >
-            <span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <BookOpen className="size-5" />
-            </span>
-            <h2 className="mt-4 font-semibold">Browse problems</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Curated Python and SQL challenges with AI review.
-            </p>
-          </Link>
-          <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-6">
-            <span className="flex size-10 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-              <Sparkles className="size-5" />
-            </span>
-            <h2 className="mt-4 font-semibold text-muted-foreground">More coming soon</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Personalized learning paths and recommendations.
-            </p>
+        {/* Recommended problems */}
+        {recommendedProblems.length > 0 && (
+          <div className="mt-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Practice now</h2>
+              <Link href="/problems" className="text-xs font-medium text-primary hover:underline">
+                Browse all →
+              </Link>
+            </div>
+            <ul className="space-y-2">
+              {recommendedProblems.map((p) => (
+                <li key={p.id}>
+                  <Link
+                    href={`/practice/${p.id}`}
+                    className="flex items-center justify-between rounded-xl border border-border/80 bg-card px-4 py-3 shadow-card transition-all hover:border-primary/30 hover:shadow-md"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{p.title}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground capitalize">
+                        {p.topic.slice(0, 2).join(", ")}
+                      </p>
+                    </div>
+                    <div className="ml-4 flex shrink-0 items-center gap-2">
+                      <Badge variant="secondary" className="capitalize text-xs">
+                        {p.language}
+                      </Badge>
+                      <Badge
+                        variant={difficultyBadgeVariant(p.difficulty)}
+                        className="capitalize text-xs"
+                      >
+                        {p.difficulty}
+                      </Badge>
+                      <ExternalLink className="size-3.5 text-muted-foreground" />
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
+        )}
+
+        {/* Recent activity */}
+        {recentSubmissions.length > 0 && (
+          <div className="mt-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Recent activity</h2>
+              <Link href="/progress" className="text-xs font-medium text-primary hover:underline">
+                View all →
+              </Link>
+            </div>
+            <ul className="space-y-2">
+              {recentSubmissions.map((s) => (
+                <li
+                  key={s.id}
+                  className="flex items-center justify-between rounded-xl border border-border/80 bg-card px-4 py-3 shadow-card"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{s.problem_title}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {new Date(s.created_at).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </p>
+                  </div>
+                  <div className="ml-4 flex shrink-0 items-center gap-2">
+                    <Badge variant="secondary" className="capitalize text-xs">
+                      {s.language}
+                    </Badge>
+                    {s.score !== null && (
+                      <span className="text-xs font-medium tabular-nums text-primary">
+                        {Math.round(s.score * 100)}%
+                      </span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Empty state: no activity yet */}
+        {recentSubmissions.length === 0 && recommendedProblems.length === 0 && (
+          <div className="mt-6 rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
+            <BookOpen className="mx-auto size-8 text-muted-foreground/50" />
+            <p className="mt-3 font-medium">Start your first problem</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Browse Python and SQL challenges and get instant AI feedback.
+            </p>
+            <Link href="/problems" className="mt-4 inline-block">
+              <Button>Browse problems</Button>
+            </Link>
+          </div>
+        )}
       </div>
-    </main>
+    </AppShell>
   );
 }
 
