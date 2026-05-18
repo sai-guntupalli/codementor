@@ -17,9 +17,39 @@ from llm.skill import assess_submission
 from llm.usage import log_usage_event
 from models.learning import Problem, Submission
 from models.users import User
-from schemas.submission import SubmissionCreate, SubmissionOut
+from fastapi import Query
+from schemas.submission import SubmissionCreate, SubmissionHistoryItem, SubmissionOut
 
 router = APIRouter(prefix="/submissions", tags=["submissions"])
+
+
+@router.get("/me", response_model=list[SubmissionHistoryItem])
+def list_my_submissions(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+    limit: int = Query(50, ge=1, le=200),
+) -> list[SubmissionHistoryItem]:
+    rows = (
+        db.query(Submission, Problem.title)
+        .join(Problem, Submission.problem_id == Problem.id)
+        .filter(Submission.user_id == current_user.id)
+        .order_by(Submission.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        SubmissionHistoryItem(
+            id=sub.id,
+            problem_id=sub.problem_id,
+            problem_title=title,
+            language=sub.language,
+            score=sub.score,
+            hints_used=sub.hints_used,
+            solution_viewed=sub.solution_viewed,
+            created_at=sub.created_at,
+        )
+        for sub, title in rows
+    ]
 
 
 @router.post("", response_model=SubmissionOut, status_code=status.HTTP_201_CREATED)

@@ -37,3 +37,16 @@ def test_create_submission_requires_auth(client: TestClient):
         },
     )
     assert response.status_code == 401
+
+
+def test_list_my_submissions_empty(auth_client: TestClient):
+    """GET /submissions/me returns empty list for user with no submissions."""
+    res = auth_client.get("/submissions/me")
+    assert res.status_code == 200
+    assert res.json() == []
+
+
+def test_list_my_submissions_requires_auth(client: TestClient):
+    """GET /submissions/me without token returns 401."""
+    res = client.get("/submissions/me")
+    assert res.status_code == 401
