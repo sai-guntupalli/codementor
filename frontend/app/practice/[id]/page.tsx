@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Sparkles } from "lucide-react";
+import { Play, Sparkles } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import {
   streamSurprise,
   streamTeach,
 } from "@/lib/practice-api";
+import { runCode, type RunResult } from "@/lib/execute-api";
 
 type Example = {
   input: string;
@@ -74,6 +75,10 @@ export default function PracticePage() {
   const [solutionLevel, setSolutionLevel] = useState("beginner");
   const [explainStyle, setExplainStyle] = useState("simple");
 
+  const [runResult, setRunResult] = useState<RunResult | null>(null);
+  const [running, setRunning] = useState(false);
+  const [outputOpen, setOutputOpen] = useState(false);
+
   const [xpEarned, setXpEarned] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,6 +121,28 @@ export default function PracticePage() {
     setLoading(true);
     load();
   }, [id, getToken]);
+
+  async function handleRun() {
+    if (!problem || !code.trim()) return;
+    setRunning(true);
+    setOutputOpen(true);
+    setRunResult(null);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      const result = await runCode(problem.language, code, token);
+      setRunResult(result);
+    } catch (err) {
+      setRunResult({
+        stdout: "",
+        stderr: err instanceof Error ? err.message : "Execution failed",
+        exit_code: 1,
+        timed_out: false,
+      });
+    } finally {
+      setRunning(false);
+    }
+  }
 
   async function handleSubmit() {
     if (!problem) return;
@@ -363,6 +390,25 @@ export default function PracticePage() {
           <>
             <Button
               size="sm"
+              variant="outline"
+              disabled={running || streaming || problem.language !== "python"}
+              onClick={handleRun}
+              title={problem.language !== "python" ? "Run is only available for Python" : undefined}
+            >
+              {running ? (
+                <>
+                  <span className="mr-1.5 size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Running…
+                </>
+              ) : (
+                <>
+                  <Play className="mr-1.5 size-3.5" />
+                  Run
+                </>
+              )}
+            </Button>
+            <Button
+              size="sm"
               variant={aiPanelOpen ? "secondary" : "outline"}
               onClick={() => setAiPanelOpen((o) => !o)}
             >
@@ -521,6 +567,70 @@ export default function PracticePage() {
           />
         </div>
       )}
+
+      <OutputPanel
+        result={runResult}
+        open={outputOpen}
+        running={running}
+        onClose={() => setOutputOpen(false)}
+      />
     </main>
+  );
+}
+
+function OutputPanel({
+  result,
+  open,
+  running,
+  onClose,
+}: {
+  result: RunResult | null;
+  open: boolean;
+  running: boolean;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="shrink-0 border-t border-border/80 bg-[oklch(0.15_0.03_275)]">
+      <div className="flex items-center justify-between border-b border-white/10 px-4 py-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-white/40">
+          Output
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-xs text-white/40 hover:text-white/70"
+        >
+          ✕
+        </button>
+      </div>
+      <div className="h-40 overflow-y-auto p-4 font-mono text-xs">
+        {running && (
+          <span className="text-white/40 animate-pulse">Running…</span>
+        )}
+        {!running && result?.timed_out && (
+          <span className="text-amber-400">Execution timed out (10s limit).</span>
+        )}
+        {!running && result && !result.timed_out && (
+          <>
+            {result.stdout && (
+              <pre className="whitespace-pre-wrap text-emerald-300">{result.stdout}</pre>
+            )}
+            {result.stderr && (
+              <pre className="whitespace-pre-wrap text-rose-400">{result.stderr}</pre>
+            )}
+            {!result.stdout && !result.stderr && (
+              <span className="text-white/40">(no output)</span>
+            )}
+            {result.exit_code !== null && result.exit_code !== 0 && (
+              <p className="mt-2 text-white/40">
+                Exit code: {result.exit_code}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
 }
