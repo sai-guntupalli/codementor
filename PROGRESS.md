@@ -1,7 +1,7 @@
 # CodeMentor — Progress
 
 ## Current Status
-Phase 7 complete: all authenticated screens built with shared AppShell sidebar, landing page live, submission history endpoint added.
+Phase 8 complete: Python code execution added — Run button in the practice IDE calls Piston and shows stdout/stderr inline.
 
 ## Completed
 - [2026-05-15] Design spec approved (`docs/superpowers/specs/2026-05-15-codementor-design.md`)
@@ -62,6 +62,12 @@ Phase 7 complete: all authenticated screens built with shared AppShell sidebar, 
   - `/progress` (SCR-03) — stats, skill breakdown, submission history table
   - `/settings` (SCR-04) — profile form + theme toggle
 
+- [2026-05-18] Phase 8: Python code execution via Piston
+  - `POST /execute` proxies to emkc.org Piston API; enforces 32KB code limit and 10s timeout
+  - Python only (SQL skipped — no PostgreSQL runtime in Piston)
+  - Frontend: "Run" button in practice IDE header; OutputPanel shows stdout (green), stderr (red), timeout warning
+  - 5 new tests (auth, sql rejection, size limit, success mock, timeout mock); all passing
+
 ## In Progress
 - Nothing — ready for next milestone
 
@@ -69,7 +75,7 @@ Phase 7 complete: all authenticated screens built with shared AppShell sidebar, 
 1. Stripe billing integration — Free/Pro plan enforcement, checkout flow, webhook handling
 2. Problem set expansion — seed 50+ Python and SQL problems across difficulty levels
 3. Deploy to production — Vercel (frontend) + Railway/Fly.io (backend), set env vars
-4. Open PR for current branch and merge
+4. Open PR for review
 
 ## Blockers
 - None
