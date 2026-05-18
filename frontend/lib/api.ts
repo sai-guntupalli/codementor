@@ -47,3 +47,23 @@ export async function apiFetch<T>(
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
+
+export type SubmissionHistoryItem = {
+  id: string;
+  problem_id: string;
+  problem_title: string;
+  language: string;
+  score: number | null;
+  hints_used: number;
+  solution_viewed: boolean;
+  created_at: string;
+};
+
+export type CurriculumPathOut = {
+  id: string;
+  title: string;
+  language: string;
+  target_level: string | null;
+  description: string | null;
+  is_published: boolean;
+};
