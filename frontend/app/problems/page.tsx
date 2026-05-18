@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
-import { AppHeader } from "@/components/layout/app-header";
+import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
@@ -124,9 +124,8 @@ export default function ProblemsPage() {
   const hasActiveFilters = filters.language || filters.difficulty || filters.topic;
 
   return (
-    <main className="min-h-screen bg-background">
-      <AppHeader crumbs={[{ label: "Dashboard", href: "/dashboard" }]} title="Problems" />
-
+    <AppShell>
+      <main className="flex min-h-0 flex-col bg-background">
       <div className="mx-auto max-w-3xl px-6 py-10">
         <p className="mb-6 text-muted-foreground">
           Pick a challenge to practice in the IDE with live AI feedback.
@@ -330,6 +329,7 @@ export default function ProblemsPage() {
           </>
         )}
       </div>
-    </main>
+      </main>
+    </AppShell>
   );
 }
