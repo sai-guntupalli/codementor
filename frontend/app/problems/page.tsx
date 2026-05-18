@@ -272,11 +272,6 @@ export default function ProblemsPage() {
                             <Badge variant={difficultyBadgeVariant(p.difficulty)} className="capitalize">
                               {p.difficulty}
                             </Badge>
-                            {p.source && p.source !== "local" && (
-                              <Badge variant="outline" className="capitalize">
-                                {p.source}
-                              </Badge>
-                            )}
                             {p.topic?.slice(0, 3).map((t) => (
                               <span key={t} className="text-xs text-muted-foreground">
                                 {t.replace(/_/g, " ")}
