@@ -76,6 +76,10 @@ export type SubmissionHistoryItem = {
   created_at: string;
 };
 
+export type SolvedProblemIdsOut = {
+  solved_ids: string[];
+};
+
 export type CurriculumPathOut = {
   id: string;
   title: string;
