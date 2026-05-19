@@ -73,6 +73,20 @@ export function streamTeach(
   );
 }
 
+export function streamCodeReview(
+  problemId: string,
+  token: string,
+  code: string,
+  handlers: StreamHandlers
+) {
+  return postStream(
+    `/problems/${problemId}/code-review`,
+    token,
+    { code },
+    handlers
+  );
+}
+
 export function streamChat(
   problemId: string,
   token: string,

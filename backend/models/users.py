@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, text
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -30,6 +30,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     display_name: Mapped[str | None] = mapped_column(String, nullable=True)
     profile_level: Mapped[str] = mapped_column(String, nullable=False)  # kid|student|engineer
+    coding_experience: Mapped[str | None] = mapped_column(String, nullable=True)  # none|some|comfortable|professional
+    learning_goal: Mapped[str | None] = mapped_column(String, nullable=True)  # job|improve|fun|course
+    interested_topics: Mapped[list | None] = mapped_column(ARRAY(String), nullable=True)
     skill_level: Mapped[dict] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
     streak_days: Mapped[int] = mapped_column(Integer, default=0)
     xp_total: Mapped[int] = mapped_column(Integer, default=0)

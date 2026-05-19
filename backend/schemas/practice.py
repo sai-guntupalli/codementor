@@ -15,6 +15,10 @@ class TeachRequest(BaseModel):
     explain_style: str = "simple"
 
 
+class CodeReviewRequest(BaseModel):
+    code: str
+
+
 class ChatMessage(BaseModel):
     role: str
     content: str

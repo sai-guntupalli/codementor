@@ -50,3 +50,16 @@ def test_list_my_submissions_requires_auth(client: TestClient):
     """GET /submissions/me without token returns 401."""
     res = client.get("/submissions/me")
     assert res.status_code == 401
+
+
+def test_list_solved_problem_ids_empty(auth_client: TestClient):
+    """GET /submissions/me/problem-ids returns empty list when user has no submissions."""
+    res = auth_client.get("/submissions/me/problem-ids")
+    assert res.status_code == 200
+    assert res.json() == {"solved_ids": []}
+
+
+def test_list_solved_problem_ids_requires_auth(client: TestClient):
+    """GET /submissions/me/problem-ids without token returns 401."""
+    res = client.get("/submissions/me/problem-ids")
+    assert res.status_code == 401

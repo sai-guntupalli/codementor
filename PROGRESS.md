@@ -1,7 +1,7 @@
 # CodeMentor — Progress
 
 ## Current Status
-Phase 7 complete: all authenticated screens built with shared AppShell sidebar, landing page live, submission history endpoint added.
+Onboarding wizard live — new users answer 4 proficiency questions and receive a personalized learning path on signup.
 
 ## Completed
 - [2026-05-15] Design spec approved (`docs/superpowers/specs/2026-05-15-codementor-design.md`)
@@ -62,14 +62,61 @@ Phase 7 complete: all authenticated screens built with shared AppShell sidebar, 
   - `/progress` (SCR-03) — stats, skill breakdown, submission history table
   - `/settings` (SCR-04) — profile form + theme toggle
 
+- [2026-05-18] Phase 8: Python code execution via Piston
+  - `POST /execute` proxies to emkc.org Piston API; enforces 32KB code limit and 10s timeout
+  - Python only (SQL skipped — no PostgreSQL runtime in Piston)
+  - Frontend: "Run" button in practice IDE header; OutputPanel shows stdout (green), stderr (red), timeout warning
+  - 5 new tests (auth, sql rejection, size limit, success mock, timeout mock); all passing
+
+- [2026-05-18] Docker setup
+  - `backend/Dockerfile` — Python 3.12 + uv, layer-cached deps, uvicorn entrypoint
+  - `frontend/Dockerfile` — multi-stage Next.js standalone build (node:22-alpine)
+  - `docker-compose.yml` — backend + frontend + piston wired on internal network
+  - `next.config.ts` — `output: "standalone"` for minimal production image
+  - Makefile: `make docker-up`, `docker-down`, `docker-build`, `docker-logs`, `docker-restart`
+  - Root `.env.example` documents all required variables
+
+- [2026-05-18] Bulk problem enrichment
+  - `backend/seeds/enrich_problems.py` — sends all problems to Claude Haiku via OpenRouter
+  - Reassigned difficulty based on common-user week-of-learning scale (beginner/easy/medium/hard)
+  - Added 2–5 semantic tags per problem from taxonomy: strings, arrays, math, loops, functions, hash-map, binary-tree, graph, dynamic-programming, etc.
+  - 186 difficulty changes, 111 title fixes, 227 description fixes applied
+  - `make enrich-problems` / `make apply-enrichment` targets added
+  - 397 problems: 76 beginner, 153 easy, 124 medium, 44 hard — 48 tests passing
+
+- [2026-05-18] OSS problem ingestion pipeline
+  - Alembic migration adds `sort_order INTEGER` to `problems` table; backfills LeetCode problems to `1000 + external_id`
+  - `backend/seeds/scrapers/curated.py` — 25 hand-written absolute-beginner problems (sort 1–25)
+  - `backend/seeds/scrapers/four_geeks.py` — 4GeeksAcademy repos (sort 100–280, ~126 problems)
+  - `backend/seeds/scrapers/exercism.py` — exercism/python difficulty ≤ 5 (sort 300–800, ~126 problems)
+  - `backend/seeds/ingest_oss.py` — dedup pipeline (slug + fuzzy-title), writes `oss_problems.json`
+  - `make scrape-oss` / `make insert-oss` targets added
+  - Problems list API now orders by `sort_order ASC NULLS LAST`
+  - 262 new problems inserted → 395 total; 48 tests passing
+
+- [2026-05-18] Onboarding proficiency wizard
+  - `/profile/setup` rewritten as 5-step wizard: name/role → experience → goal → topics → learning path reveal
+  - 4 new `User` columns: `coding_experience`, `learning_goal`, `interested_topics` + Alembic migration
+  - `GET /users/me/learning-path` returns 12 curated problems based on experience, goal, and topic preferences
+  - Step indicator dots, animated progress bar, icon cards, multi-select topic chips
+  - 48 tests passing
+
+- [2026-05-18] Core UX enhancements
+  - `GET /submissions/me/problem-ids` — lightweight endpoint returns UUIDs of problems the user has submitted
+  - Problems page: "Beginner" difficulty pill added; solved problems show a green "Solved" badge
+  - Dashboard: swapped generic problems list for personalized learning path (4 numbered cards); first-time users see "Ready to start your journey?" CTA with "Start Problem 1" button
+  - Learn page: replaced coming-soon stub with full personalized learning path list; solved problems show green checkmark instead of number
+  - Practice IDE: code autosaves to `localStorage` every 500ms; "Draft restored" chip shows on revisit; draft is cleared on submit
+  - Practice IDE: "Review complete!" CTA banner appears after streaming review finishes with links to Browse problems / Your learning path
+
 ## In Progress
 - Nothing — ready for next milestone
 
 ## Next Steps
 1. Stripe billing integration — Free/Pro plan enforcement, checkout flow, webhook handling
 2. Problem set expansion — seed 50+ Python and SQL problems across difficulty levels
-3. Deploy to production — Vercel (frontend) + Railway/Fly.io (backend), set env vars
-4. Open PR for current branch and merge
+3. Deploy to production — push Docker images to a registry, deploy to Fly.io / Railway
+4. Open PR for review
 
 ## Blockers
 - None

@@ -1,17 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, Lock } from "lucide-react";
+import { CheckCircle2, ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { getValidatedAccessToken } from "@/lib/auth-session";
-import { apiFetch, type CurriculumPathOut } from "@/lib/api";
+import {
+  apiFetch,
+  type LearningPathOut,
+  type LearningPathProblem,
+  type SolvedProblemIdsOut,
+} from "@/lib/api";
+import { difficultyBadgeVariant } from "@/lib/tags";
 
 export default function LearnPage() {
   const router = useRouter();
-  const [paths, setPaths] = useState<CurriculumPathOut[]>([]);
+  const [learningPath, setLearningPath] = useState<LearningPathOut | null>(null);
+  const [solvedIds, setSolvedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,10 +32,14 @@ export default function LearnPage() {
         return;
       }
       try {
-        const data = await apiFetch<CurriculumPathOut[]>("/curriculum-paths", { token });
-        setPaths(data);
+        const [path, solved] = await Promise.all([
+          apiFetch<LearningPathOut>("/users/me/learning-path", { token }),
+          apiFetch<SolvedProblemIdsOut>("/submissions/me/problem-ids", { token }),
+        ]);
+        setLearningPath(path);
+        setSolvedIds(new Set(solved.solved_ids));
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load curriculum");
+        setError(err instanceof Error ? err.message : "Failed to load");
       } finally {
         setLoading(false);
       }
@@ -38,11 +50,15 @@ export default function LearnPage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-3xl px-6 py-10">
-          <div className="h-8 w-40 animate-pulse rounded-xl bg-muted" />
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-36 animate-pulse rounded-2xl border border-border/50 bg-muted/40" />
+        <div className="mx-auto max-w-2xl px-6 py-10">
+          <div className="h-7 w-48 animate-pulse rounded-xl bg-muted" />
+          <div className="mt-2 h-4 w-72 animate-pulse rounded-lg bg-muted/60" />
+          <div className="mt-8 space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-16 animate-pulse rounded-xl border border-border/50 bg-muted/40"
+              />
             ))}
           </div>
         </div>
@@ -52,78 +68,77 @@ export default function LearnPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-3xl px-6 py-10">
-        <h1 className="text-2xl font-bold tracking-tight">Learning Paths</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Structured curricula to guide your progress from beginner to advanced.
-        </p>
-
-        {error && (
-          <p className="mt-4 text-sm text-destructive">{error}</p>
+      <div className="mx-auto max-w-2xl px-6 py-10">
+        <h1 className="text-2xl font-bold tracking-tight">Your Learning Path</h1>
+        {learningPath?.message && (
+          <p className="mt-1 text-sm text-muted-foreground">{learningPath.message}</p>
         )}
 
-        {!error && paths.length === 0 && (
-          <div className="mt-10 rounded-2xl border border-dashed border-border bg-muted/20 p-12 text-center">
-            <BookOpen className="mx-auto size-8 text-muted-foreground/50" />
-            <p className="mt-3 font-medium">Curriculum paths coming soon</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              We&apos;re building structured Python and SQL tracks. Check back soon.
-            </p>
-          </div>
-        )}
+        {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
 
-        {paths.length > 0 && (
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            {paths.map((path, idx) => (
-              <PathCard key={path.id} path={path} locked={idx > 0} />
+        {!error && learningPath && (
+          <ol className="mt-8 space-y-3">
+            {learningPath.problems.map((problem, idx) => (
+              <ProblemCard
+                key={problem.id}
+                problem={problem}
+                index={idx + 1}
+                solved={solvedIds.has(problem.id)}
+              />
             ))}
-          </div>
+          </ol>
         )}
       </div>
     </AppShell>
   );
 }
 
-function PathCard({
-  path,
-  locked,
+function ProblemCard({
+  problem,
+  index,
+  solved,
 }: {
-  path: CurriculumPathOut;
-  locked: boolean;
+  problem: LearningPathProblem;
+  index: number;
+  solved: boolean;
 }) {
-  const langColors: Record<string, string> = {
-    python: "text-blue-500",
-    sql: "text-emerald-500",
-  };
-  const color = langColors[path.language] ?? "text-primary";
-
   return (
-    <div
-      className={`relative rounded-2xl border border-border/80 bg-card p-6 shadow-card transition-all ${
-        locked ? "opacity-60" : "hover:border-primary/30 hover:shadow-md"
-      }`}
-    >
-      {locked && (
-        <span className="absolute right-4 top-4 flex size-7 items-center justify-center rounded-full bg-muted">
-          <Lock className="size-3.5 text-muted-foreground" />
+    <li>
+      <Link
+        href={`/practice/${problem.id}`}
+        className={`group flex items-center gap-4 rounded-xl border bg-card px-4 py-3 shadow-card transition-all hover:shadow-md ${
+          solved
+            ? "border-emerald-500/20 hover:border-emerald-500/40"
+            : "border-border/80 hover:border-primary/30"
+        }`}
+      >
+        <span
+          className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+            solved
+              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+              : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {solved ? <CheckCircle2 className="size-4" /> : index}
         </span>
-      )}
-      <div className="flex items-center gap-2">
-        <Badge variant="secondary" className={`capitalize ${color}`}>
-          {path.language}
-        </Badge>
-        {path.target_level && (
-          <Badge variant="outline" className="capitalize text-xs">
-            {path.target_level}
-          </Badge>
-        )}
-      </div>
-      <h3 className="mt-3 font-semibold">{path.title}</h3>
-      {path.description && (
-        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground line-clamp-2">
-          {path.description}
-        </p>
-      )}
-    </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium group-hover:text-primary">{problem.title}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <Badge
+              variant={difficultyBadgeVariant(problem.difficulty)}
+              className="capitalize text-xs"
+            >
+              {problem.difficulty}
+            </Badge>
+            {problem.topic.slice(0, 3).map((t) => (
+              <span key={t} className="text-xs text-muted-foreground capitalize">
+                {t.replace(/_/g, " ")}
+              </span>
+            ))}
+          </div>
+        </div>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-primary" />
+      </Link>
+    </li>
   );
 }

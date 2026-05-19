@@ -18,6 +18,7 @@ class ProblemOut(BaseModel):
     external_id: int | None
     source_url: str | None
     source: str
+    sort_order: int | None
     is_published: bool
     created_at: datetime
 

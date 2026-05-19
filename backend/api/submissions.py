@@ -18,7 +18,7 @@ from llm.usage import log_usage_event
 from models.learning import Problem, Submission
 from models.users import User
 from fastapi import Query
-from schemas.submission import SubmissionCreate, SubmissionHistoryItem, SubmissionOut
+from schemas.submission import SubmissionCreate, SubmissionHistoryItem, SubmissionOut, SolvedProblemIdsOut
 
 router = APIRouter(prefix="/submissions", tags=["submissions"])
 
@@ -50,6 +50,20 @@ def list_my_submissions(
         )
         for sub, title in rows
     ]
+
+
+@router.get("/me/problem-ids", response_model=SolvedProblemIdsOut)
+def list_my_solved_problem_ids(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> SolvedProblemIdsOut:
+    rows = (
+        db.query(Submission.problem_id)
+        .filter(Submission.user_id == current_user.id)
+        .distinct()
+        .all()
+    )
+    return SolvedProblemIdsOut(solved_ids=[r.problem_id for r in rows])
 
 
 @router.post("", response_model=SubmissionOut, status_code=status.HTTP_201_CREATED)

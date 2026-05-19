@@ -25,6 +25,7 @@ class Problem(Base):
     source_url: Mapped[str | None] = mapped_column(String, nullable=True)
     # source: curated|user|llm
     source: Mapped[str] = mapped_column(String, nullable=False, default="curated")
+    sort_order: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     org_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     is_published: Mapped[bool] = mapped_column(Boolean, default=True)
