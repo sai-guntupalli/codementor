@@ -29,6 +29,7 @@ from models.learning import Problem, Submission
 from models.users import User
 from schemas.practice import (
     ChatRequest,
+    CodeReviewRequest,
     HintRequest,
     SolutionRequest,
     SurpriseRequest,
@@ -288,6 +289,46 @@ async def teach_me(
             current_user,
             event_type="teach_me",
             prompt_name="teach_me",
+            model=model,
+            messages=messages,
+        )
+    )
+
+
+@router.post("/{problem_id}/code-review")
+async def code_quality_review(
+    problem_id: uuid.UUID,
+    body: CodeReviewRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> StreamingResponse:
+    """PRAC-09: Code quality review — what's good, what's wrong, what to improve."""
+    problem = _get_problem(db, problem_id)
+    prompt = (
+        f"You are a code quality mentor. Review the student's solution and give structured feedback.\n\n"
+        f"**Problem:** {problem.title}\n{problem.description}\n\n"
+        f"**Student's {problem.language} solution:**\n"
+        f"```{problem.language}\n{body.code}\n```\n\n"
+        "Use exactly these markdown sections (skip any that don't apply):\n\n"
+        "## ✅ What's Good\n"
+        "Correct logic, clean style, or smart choices worth calling out.\n\n"
+        "## ⚠️ Issues\n"
+        "Bugs, wrong output, missed edge cases — be specific.\n\n"
+        "## 💡 Improvements\n"
+        "Concrete suggestions: better names, idiomatic style, efficiency gains, readability.\n\n"
+        "## 📊 Complexity\n"
+        "Time and space complexity in one line each.\n\n"
+        "Be direct and concise. Focus on what will help the student grow."
+    )
+    model = resolve_model(db, current_user)
+    messages = [{"role": "user", "content": prompt}]
+
+    return sse_response(
+        _stream_with_usage_log(
+            db,
+            current_user,
+            event_type="code_quality_review",
+            prompt_name="code_quality_review",
             model=model,
             messages=messages,
         )

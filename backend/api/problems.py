@@ -36,7 +36,13 @@ def list_problems(
     if topic:
         query = query.filter(Problem.topic.contains([topic]))
     total = query.count()
-    items = query.offset((page - 1) * page_size).limit(page_size).all()
+    items = (
+        query
+        .order_by(Problem.sort_order.asc().nulls_last(), Problem.created_at.asc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
     return ProblemListOut(items=items, total=total, page=page, page_size=page_size)
 
 

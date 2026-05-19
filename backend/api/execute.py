@@ -3,13 +3,12 @@ from typing import Annotated
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 
+from core.config import settings
 from core.deps import get_current_user
 from models.users import User
 from schemas.execute import ExecuteRequest, ExecuteResult
 
 router = APIRouter(prefix="/execute", tags=["execute"])
-
-PISTON_URL = "https://emkc.org/api/v2/piston/execute"
 SUPPORTED_LANGUAGES = {"python"}
 PISTON_RUNTIMES: dict[str, tuple[str, str]] = {
     "python": ("python", "3.10.0"),
@@ -33,13 +32,13 @@ async def execute_code(
         "language": runtime,
         "version": version,
         "files": [{"content": body.code}],
-        "stdin": "",
+        "stdin": body.stdin,
         "args": [],
     }
 
     try:
         async with httpx.AsyncClient(timeout=PISTON_TIMEOUT) as client:
-            resp = await client.post(PISTON_URL, json=payload)
+            resp = await client.post(settings.piston_url, json=payload)
             resp.raise_for_status()
         run = resp.json().get("run", {})
         return ExecuteResult(

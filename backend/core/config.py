@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     supabase_key: str = ""
     supabase_jwt_secret: str = ""
     openrouter_api_key: str = ""
+    piston_url: str = "http://localhost:2000/api/v2/execute"
 
 
 settings = Settings()
