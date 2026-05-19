@@ -3,13 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { getValidatedAccessToken } from "@/lib/auth-session";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, type SolvedProblemIdsOut } from "@/lib/api";
 import { difficultyBadgeVariant } from "@/lib/tags";
 
 type Problem = {
@@ -45,6 +45,7 @@ const LANGUAGES = [
 
 const DIFFICULTIES = [
   { label: "All", value: "" },
+  { label: "Beginner", value: "beginner" },
   { label: "Easy", value: "easy" },
   { label: "Medium", value: "medium" },
   { label: "Hard", value: "hard" },
@@ -60,6 +61,7 @@ export default function ProblemsPage() {
   const [filters, setFilters] = useState<Filters>({ language: "", difficulty: "", topic: "" });
   const [topicInput, setTopicInput] = useState("");
   const [token, setToken] = useState<string | null>(null);
+  const [solvedIds, setSolvedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function authenticate() {
@@ -70,6 +72,12 @@ export default function ProblemsPage() {
         return;
       }
       setToken(t);
+      try {
+        const data = await apiFetch<SolvedProblemIdsOut>("/submissions/me/problem-ids", { token: t });
+        setSolvedIds(new Set(data.solved_ids));
+      } catch {
+        // non-critical — solved badges just won't show
+      }
     }
     authenticate();
   }, [router]);
@@ -266,6 +274,12 @@ export default function ProblemsPage() {
                             {p.title}
                           </h2>
                           <div className="mt-2 flex flex-wrap items-center gap-2">
+                            {solvedIds.has(p.id) && (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                <CheckCircle2 className="size-3" />
+                                Solved
+                              </span>
+                            )}
                             <Badge variant="secondary" className="capitalize">
                               {p.language}
                             </Badge>
