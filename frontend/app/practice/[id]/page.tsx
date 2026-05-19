@@ -499,12 +499,18 @@ export default function PracticePage() {
                   <MarkdownContent content={problem.description} />
                 </div>
 
-                {problem.examples && problem.examples.length > 0 && (
+                {(() => {
+                  const isPlaceholder = (s: string) =>
+                    /see description/i.test(s) || s.trim() === "" || s.trim().toLowerCase() === "n/a";
+                  const validExamples = (problem.examples ?? []).filter(
+                    (ex) => !isPlaceholder(ex.input) && !isPlaceholder(ex.output)
+                  );
+                  return validExamples.length > 0 ? (
                   <div className="mt-5 space-y-3">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Examples
                     </p>
-                    {problem.examples.map((ex, i) => (
+                    {validExamples.map((ex, i) => (
                       <div
                         key={i}
                         className="rounded-lg border border-border/60 bg-muted/30 p-3 text-xs"
@@ -529,7 +535,8 @@ export default function PracticePage() {
                       </div>
                     ))}
                   </div>
-                )}
+                  ) : null;
+                })()}
 
                 {problem.constraints && (
                   <div className="mt-5">
