@@ -35,3 +35,7 @@ class SubmissionHistoryItem(BaseModel):
     hints_used: int
     solution_viewed: bool
     created_at: datetime
+
+
+class SolvedProblemIdsOut(BaseModel):
+    solved_ids: list[uuid.UUID]
