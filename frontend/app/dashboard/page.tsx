@@ -3,30 +3,21 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, ExternalLink, LogOut, Sparkles, Star, Zap } from "lucide-react";
+import { ArrowRight, LogOut, Sparkles, Star, Zap } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { getValidatedAccessToken } from "@/lib/auth-session";
-import { apiFetch, type UserOut, type SubmissionHistoryItem } from "@/lib/api";
+import { apiFetch, type UserOut, type SubmissionHistoryItem, type LearningPathOut, type LearningPathProblem } from "@/lib/api";
 import { difficultyBadgeVariant } from "@/lib/tags";
-
-type ProblemItem = {
-  id: string;
-  title: string;
-  language: string;
-  difficulty: string;
-  topic: string[];
-};
-
-type ProblemList = { items: ProblemItem[]; total: number };
 
 export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserOut | null>(null);
   const [recentSubmissions, setRecentSubmissions] = useState<SubmissionHistoryItem[]>([]);
-  const [recommendedProblems, setRecommendedProblems] = useState<ProblemItem[]>([]);
+  const [learningPath, setLearningPath] = useState<LearningPathProblem[]>([]);
+  const [learningPathMessage, setLearningPathMessage] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,10 +29,10 @@ export default function DashboardPage() {
         return;
       }
       try {
-        const [user, submissions, problems] = await Promise.all([
+        const [user, submissions, path] = await Promise.all([
           apiFetch<UserOut>("/users/me", { token }),
           apiFetch<SubmissionHistoryItem[]>("/submissions/me?limit=3", { token }),
-          apiFetch<ProblemList>("/problems?page_size=3", { token }),
+          apiFetch<LearningPathOut>("/users/me/learning-path", { token }),
         ]);
         if (!user.is_profile_complete) {
           router.replace("/profile/setup");
@@ -49,7 +40,8 @@ export default function DashboardPage() {
         }
         setProfile(user);
         setRecentSubmissions(submissions);
-        setRecommendedProblems(problems.items);
+        setLearningPath(path.problems.slice(0, 4));
+        setLearningPathMessage(path.message);
       } catch {
         router.replace("/login");
       } finally {
@@ -149,27 +141,33 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Recommended problems */}
-        {recommendedProblems.length > 0 && (
+        {/* Learning path */}
+        {learningPath.length > 0 && (
           <div className="mt-6">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Practice now</h2>
-              <Link href="/problems" className="text-xs font-medium text-primary hover:underline">
-                Browse all →
+            <div className="mb-1 flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Your learning path</h2>
+              <Link href="/learn" className="text-xs font-medium text-primary hover:underline">
+                View full path →
               </Link>
             </div>
+            <p className="mb-3 text-xs text-muted-foreground">{learningPathMessage}</p>
             <ul className="space-y-2">
-              {recommendedProblems.map((p) => (
+              {learningPath.map((p, idx) => (
                 <li key={p.id}>
                   <Link
                     href={`/practice/${p.id}`}
                     className="flex items-center justify-between rounded-xl border border-border/80 bg-card px-4 py-3 shadow-card transition-all hover:border-primary/30 hover:shadow-md"
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{p.title}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground capitalize">
-                        {p.topic.slice(0, 2).join(", ")}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
+                        {idx + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{p.title}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground capitalize">
+                          {p.topic.slice(0, 2).join(", ")}
+                        </p>
+                      </div>
                     </div>
                     <div className="ml-4 flex shrink-0 items-center gap-2">
                       <Badge variant="secondary" className="capitalize text-xs">
@@ -181,7 +179,6 @@ export default function DashboardPage() {
                       >
                         {p.difficulty}
                       </Badge>
-                      <ExternalLink className="size-3.5 text-muted-foreground" />
                     </div>
                   </Link>
                 </li>
@@ -230,16 +227,16 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Empty state: no activity yet */}
-        {recentSubmissions.length === 0 && recommendedProblems.length === 0 && (
-          <div className="mt-6 rounded-2xl border border-dashed border-border bg-muted/20 p-8 text-center">
-            <BookOpen className="mx-auto size-8 text-muted-foreground/50" />
-            <p className="mt-3 font-medium">Start your first problem</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Browse Python and SQL challenges and get instant AI feedback.
-            </p>
-            <Link href="/problems" className="mt-4 inline-block">
-              <Button>Browse problems</Button>
+        {/* First-time CTA */}
+        {recentSubmissions.length === 0 && learningPath.length > 0 && (
+          <div className="mt-6 rounded-2xl border border-primary/20 bg-primary/5 p-6">
+            <p className="text-sm font-semibold">Ready to start your journey?</p>
+            <p className="mt-1 text-sm text-muted-foreground">{learningPathMessage}</p>
+            <Link href={`/practice/${learningPath[0].id}`} className="mt-4 inline-block">
+              <Button className="gap-2">
+                Start Problem 1
+                <ArrowRight className="size-4" />
+              </Button>
             </Link>
           </div>
         )}
