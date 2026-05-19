@@ -12,10 +12,27 @@ export type UserOut = {
   email: string;
   display_name: string | null;
   profile_level: string;
+  coding_experience: string | null;
+  learning_goal: string | null;
+  interested_topics: string[] | null;
   skill_level: Record<string, unknown>;
   streak_days: number;
   xp_total: number;
   is_profile_complete: boolean;
+};
+
+export type LearningPathProblem = {
+  id: string;
+  title: string;
+  slug: string | null;
+  difficulty: string;
+  topic: string[];
+  language: string;
+};
+
+export type LearningPathOut = {
+  problems: LearningPathProblem[];
+  message: string;
 };
 
 function formatApiError(detail: unknown): string {
