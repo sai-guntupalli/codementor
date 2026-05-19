@@ -1,0 +1,44 @@
+services:
+  backend:
+    build: ./backend
+    container_name: hmc_backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      # Override to use the internal service name
+      PISTON_URL: http://piston:2000/api/v2/execute
+    depends_on:
+      - piston
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    container_name: hmc_frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  piston:
+    image: ghcr.io/engineer-man/piston
+    container_name: hmc_piston
+    privileged: true
+    ports:
+      - "2000:2000"
+    volumes:
+      - piston_packages:/piston/packages
+    tmpfs:
+      - /tmp:exec
+      - /piston/jobs:exec
+    restart: unless-stopped
+
+volumes:
+  piston_packages:
