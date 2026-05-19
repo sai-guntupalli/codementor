@@ -101,6 +101,14 @@ Onboarding wizard live — new users answer 4 proficiency questions and receive 
   - Step indicator dots, animated progress bar, icon cards, multi-select topic chips
   - 48 tests passing
 
+- [2026-05-18] Core UX enhancements
+  - `GET /submissions/me/problem-ids` — lightweight endpoint returns UUIDs of problems the user has submitted
+  - Problems page: "Beginner" difficulty pill added; solved problems show a green "Solved" badge
+  - Dashboard: swapped generic problems list for personalized learning path (4 numbered cards); first-time users see "Ready to start your journey?" CTA with "Start Problem 1" button
+  - Learn page: replaced coming-soon stub with full personalized learning path list; solved problems show green checkmark instead of number
+  - Practice IDE: code autosaves to `localStorage` every 500ms; "Draft restored" chip shows on revisit; draft is cleared on submit
+  - Practice IDE: "Review complete!" CTA banner appears after streaming review finishes with links to Browse problems / Your learning path
+
 ## In Progress
 - Nothing — ready for next milestone
 
