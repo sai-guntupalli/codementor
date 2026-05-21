@@ -87,9 +87,12 @@
   --sidebar-accent-foreground: oklch(0.32 0.06 275);
   --sidebar-border: oklch(0.9 0.02 275);
   --sidebar-ring: oklch(0.55 0.18 275);
+  --canvas: oklch(0.955 0.008 275);
   --shadow-sm: 0 1px 2px oklch(0.35 0.05 275 / 0.06);
   --shadow-md: 0 4px 12px oklch(0.35 0.05 275 / 0.08);
   --shadow-lg: 0 8px 24px oklch(0.35 0.05 275 / 0.1);
+  --shadow-panel: 0 2px 4px oklch(0.35 0.05 275 / 0.04), 0 8px 24px oklch(0.35 0.05 275 / 0.08);
+  --shadow-panel-hover: 0 4px 8px oklch(0.35 0.05 275 / 0.06), 0 12px 32px oklch(0.35 0.05 275 / 0.1);
 }
 
 .dark {
@@ -121,6 +124,9 @@
   --sidebar-accent-foreground: oklch(0.94 0.01 275);
   --sidebar-border: oklch(0.3 0.04 275);
   --sidebar-ring: oklch(0.6 0.16 275);
+  --canvas: oklch(0.14 0.028 275);
+  --shadow-panel: 0 2px 4px oklch(0 0 0 / 0.2), 0 8px 24px oklch(0 0 0 / 0.35);
+  --shadow-panel-hover: 0 4px 8px oklch(0 0 0 / 0.25), 0 12px 32px oklch(0 0 0 / 0.4);
 }
 
 @layer base {
@@ -150,5 +156,27 @@
   }
   .shadow-header {
     box-shadow: var(--shadow-sm);
+  }
+  .workspace-canvas {
+    background-color: var(--canvas);
+  }
+  .panel-card {
+    border-radius: var(--radius-xl);
+    border: 1px solid oklch(0.88 0.015 275 / 0.9);
+    background-color: var(--card);
+    box-shadow: var(--shadow-panel);
+  }
+  .dark .panel-card {
+    border-color: oklch(0.32 0.04 275 / 0.8);
+  }
+  .sub-card {
+    border-radius: var(--radius-lg);
+    border: 1px solid oklch(0.9 0.012 275 / 0.85);
+    background-color: var(--muted);
+    box-shadow: var(--shadow-sm);
+  }
+  .dark .sub-card {
+    border-color: oklch(0.28 0.035 275);
+    background-color: oklch(0.22 0.032 275);
   }
 }

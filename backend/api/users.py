@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from core.deps import get_current_user
+from core.streak import maybe_backfill_streak
 from db.session import get_db
 from models.learning import Problem
 from models.users import User
@@ -37,18 +38,23 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get("/me", response_model=UserOut)
 def get_me(
     current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> UserOut:
+    maybe_backfill_streak(current_user, db)
+    db.refresh(current_user)
     return current_user
 
 
 @router.get("/me/skills", response_model=SkillsOut)
 def get_my_skills(
     current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
 ) -> SkillsOut:
+    streak = maybe_backfill_streak(current_user, db)
     return SkillsOut(
         skill_level=current_user.skill_level or {},
         xp_total=current_user.xp_total or 0,
-        streak_days=current_user.streak_days or 0,
+        streak_days=streak,
     )
 
 
@@ -82,6 +88,8 @@ def get_learning_path(
 
     candidates.sort(key=score, reverse=True)
     selected = candidates[:12]
+    path_ids = {p.id for p in selected}
+    next_problems = [p for p in candidates if p.id not in path_ids][:6]
 
     messages = {
         "none": "Here's your beginner-friendly path — no prior experience needed.",
@@ -93,6 +101,7 @@ def get_learning_path(
     return LearningPathOut(
         problems=[LearningPathProblem.model_validate(p) for p in selected],
         message=messages.get(experience, "Your personalized learning path."),
+        next_problems=[LearningPathProblem.model_validate(p) for p in next_problems],
     )
 
 

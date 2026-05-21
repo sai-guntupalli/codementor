@@ -12,7 +12,7 @@ from core.deps import get_current_user
 from db.session import get_db
 from models.learning import Problem, ProblemSolution
 from models.users import User
-from schemas.problem import ProblemListOut, ProblemOut, ProblemSolutionOut
+from schemas.problem import ProblemListOut, ProblemPublicOut, ProblemSolutionOut
 
 router = APIRouter(prefix="/problems", tags=["problems"])
 
@@ -46,12 +46,12 @@ def list_problems(
     return ProblemListOut(items=items, total=total, page=page, page_size=page_size)
 
 
-@router.get("/{problem_id}", response_model=ProblemOut)
+@router.get("/{problem_id}", response_model=ProblemPublicOut)
 def get_problem(
     problem_id: uuid.UUID,
     db: Annotated[Session, Depends(get_db)],
     current_user: Annotated[User, Depends(get_current_user)],
-) -> ProblemOut:
+) -> ProblemPublicOut:
     del current_user
     problem = (
         db.query(Problem)

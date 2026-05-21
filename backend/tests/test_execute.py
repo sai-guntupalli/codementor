@@ -27,6 +27,40 @@ def test_execute_code_too_large(auth_client: TestClient):
     assert res.status_code == 422
 
 
+def test_execute_normalizes_stdin_for_piston(auth_client: TestClient):
+    """Literal \\n in stdin is expanded before calling Piston."""
+    mock_response = {
+        "run": {"stdout": "20\n", "stderr": "", "code": 0, "signal": None}
+    }
+    captured: dict = {}
+
+    async def fake_post(*_args, **kwargs):
+        captured["json"] = kwargs.get("json")
+        return AsyncMock(
+            status_code=200,
+            json=lambda: mock_response,
+            raise_for_status=lambda: None,
+        )
+
+    with patch(
+        "api.execute.httpx.AsyncClient.post",
+        new=AsyncMock(side_effect=fake_post),
+    ):
+        res = auth_client.post(
+            "/execute",
+            json={
+                "language": "python",
+                "code": "a=int(input())\nb=int(input())\nprint(a*b)",
+                "stdin": "4\\n5",
+            },
+        )
+    assert res.status_code == 200
+    assert captured["json"]["stdin"] == "4\n5\n"
+    assert captured["json"]["files"][0]["name"] == "main.py"
+    assert captured["json"]["run_timeout"] == 3000
+    assert captured["json"]["compile_timeout"] == 3000
+
+
 def test_execute_python_success(auth_client: TestClient):
     """Happy path: valid Python returns stdout."""
     mock_response = {

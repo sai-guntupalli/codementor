@@ -4,7 +4,9 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-class ProblemOut(BaseModel):
+class ProblemPublicOut(BaseModel):
+    """Problem payload for learners — hints omitted (revealed via /hint only)."""
+
     id: uuid.UUID
     title: str
     slug: str | None
@@ -14,7 +16,6 @@ class ProblemOut(BaseModel):
     topic: list[str]
     examples: list[dict]
     constraints: str | None
-    hints: list[str] | None
     external_id: int | None
     source_url: str | None
     source: str
@@ -25,8 +26,14 @@ class ProblemOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ProblemOut(ProblemPublicOut):
+    """Full problem record including stored hints (admin/seeds)."""
+
+    hints: list[str] | None = None
+
+
 class ProblemListOut(BaseModel):
-    items: list[ProblemOut]
+    items: list[ProblemPublicOut]
     total: int
     page: int
     page_size: int

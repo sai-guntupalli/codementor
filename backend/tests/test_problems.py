@@ -62,12 +62,14 @@ def test_problem_solution_model_exists():
 
 
 def test_problem_out_has_new_fields():
-    from schemas.problem import ProblemOut
-    fields = ProblemOut.model_fields
-    assert "slug" in fields
-    assert "external_id" in fields
-    assert "source_url" in fields
-    assert "hints" in fields
+    from schemas.problem import ProblemOut, ProblemPublicOut
+
+    public_fields = ProblemPublicOut.model_fields
+    assert "slug" in public_fields
+    assert "hints" not in public_fields
+
+    admin_fields = ProblemOut.model_fields
+    assert "hints" in admin_fields
 
 
 def test_problem_solution_out_schema():

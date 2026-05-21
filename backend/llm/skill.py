@@ -4,6 +4,7 @@ import re
 
 from sqlalchemy.orm import Session
 
+from core.streak import recompute_streak
 from models.learning import Problem, SkillSnapshot, Submission
 from models.users import User
 
@@ -57,6 +58,7 @@ def assess_submission(
     submission.score = score
     user.skill_level = skill_level
     user.xp_total = (user.xp_total or 0) + xp
+    recompute_streak(user, db)
 
     snapshot = SkillSnapshot(
         user_id=user.id,

@@ -49,10 +49,18 @@ function normalizeOutput(s: string): string {
     .trim();
 }
 
-function normalizeInput(raw: string): string {
+/** Prepare stdin for Python input() — real newlines and trailing line feed. */
+export function normalizeStdin(raw: string): string {
   const trimmed = raw.trim();
   if (trimmed === "(none)" || trimmed === "") return "";
-  return trimmed;
+  let s = trimmed.replace(/\\n/g, "\n");
+  if (!s.endsWith("\n")) s += "\n";
+  return s;
+}
+
+export function isRunnableExample(input: string): boolean {
+  const t = input.trim();
+  return t !== "" && t !== "(none)" && !/see description/i.test(t);
 }
 
 export async function runTestCases(
@@ -61,9 +69,10 @@ export async function runTestCases(
   token: string,
   examples: { input: string; output: string }[]
 ): Promise<TestCaseResult[]> {
+  const runnable = examples.filter((ex) => isRunnableExample(ex.input));
   const results = await Promise.all(
-    examples.map(async (ex, i) => {
-      const stdin = normalizeInput(ex.input);
+    runnable.map(async (ex, i) => {
+      const stdin = normalizeStdin(ex.input);
       const expected = normalizeOutput(ex.output);
       try {
         const result = await runCode(language, code, token, stdin);

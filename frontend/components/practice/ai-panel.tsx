@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { MarkdownContent } from "@/components/markdown-content";
@@ -10,7 +9,6 @@ import {
   Code2,
   Lightbulb,
   Loader2,
-  Lock,
   MessageCircle,
   PanelRightClose,
   Send,
@@ -52,6 +50,7 @@ type AiPanelProps = {
   onSolutionLevelChange: (v: string) => void;
   loading: boolean;
   xpEarned?: number | null;
+  submissionScore?: number | null;
   onRequestHint: (n: number) => void;
   onRequestSolution: () => void;
   onRequestCodeReview: () => void;
@@ -75,6 +74,7 @@ export function AiPanel({
   onSolutionLevelChange,
   loading,
   xpEarned,
+  submissionScore,
   onRequestHint,
   onRequestSolution,
   onRequestCodeReview,
@@ -91,10 +91,9 @@ export function AiPanel({
   }, [chatMessages, activeTab]);
 
   return (
-    <aside className="flex h-full min-h-0 flex-col border-l border-border/60 bg-card">
-      {/* Header */}
-      <div className="shrink-0 border-b border-border/60">
-        <div className="flex items-center justify-between px-3 py-2.5">
+    <aside className="flex h-full min-h-0 flex-col bg-card">
+      <div className="shrink-0 border-b border-border/50 bg-muted/25">
+        <div className="flex items-center justify-between px-4 py-2.5">
           <div className="flex items-center gap-2">
             <div className="flex size-6 items-center justify-center rounded-md bg-primary/15">
               <Sparkles className="size-3.5 text-primary" />
@@ -115,25 +114,21 @@ export function AiPanel({
           )}
         </div>
 
-        {/* Icon tab strip */}
-        <div className="flex border-t border-border/40">
+        <div className="flex gap-0.5 border-t border-border/40 p-1">
           {TABS.map(({ id, label, Icon }) => (
             <button
               key={id}
               type="button"
               onClick={() => onTabChange(id)}
               className={cn(
-                "relative flex flex-1 flex-col items-center gap-1 py-2.5 transition-colors",
+                "relative flex flex-1 flex-col items-center gap-1 rounded-lg py-2 transition-all",
                 activeTab === id
-                  ? "text-primary"
-                  : "text-muted-foreground/60 hover:text-muted-foreground"
+                  ? "bg-card text-primary shadow-sm"
+                  : "text-muted-foreground/60 hover:bg-card/50 hover:text-muted-foreground"
               )}
             >
               <Icon className="size-3.5" />
               <span className="text-[10px] font-medium leading-none">{label}</span>
-              {activeTab === id && (
-                <span className="absolute bottom-0 left-1/2 h-0.5 w-4/5 -translate-x-1/2 rounded-full bg-primary" />
-              )}
             </button>
           ))}
         </div>
@@ -143,39 +138,23 @@ export function AiPanel({
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {activeTab === "review" && (
           <div className="space-y-3">
-            {xpEarned != null && (
-              <div className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/8 px-3 py-2">
-                <Zap className="size-3.5 shrink-0 text-amber-400" />
-                <span className="text-sm font-semibold text-amber-400">+{xpEarned} XP earned</span>
-              </div>
-            )}
+            {reviewComplete &&
+              submissionScore != null &&
+              xpEarned != null &&
+              xpEarned > 0 && (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/8 px-3 py-2 text-sm">
+                  <span className="font-medium text-emerald-700 dark:text-emerald-300">
+                    {Math.round(submissionScore * 100)}% — accepted
+                  </span>
+                  <span className="flex items-center gap-1 font-semibold text-amber-500">
+                    <Zap className="size-3.5" />
+                    +{xpEarned} XP
+                  </span>
+                </div>
+              )}
             {loading && !review && <LoadingState text="Reviewing your code…" />}
             {review ? (
-              <>
-                <MarkdownContent content={review} />
-                {reviewComplete && (
-                  <div className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-                    <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-                      Review complete!
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Keep going — consistency is how skills are built.
-                    </p>
-                    <div className="mt-3 flex gap-2">
-                      <Link href="/problems">
-                        <Button size="sm" variant="outline" className="text-xs">
-                          Browse problems
-                        </Button>
-                      </Link>
-                      <Link href="/learn">
-                        <Button size="sm" className="text-xs">
-                          Your learning path
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                )}
-              </>
+              <MarkdownContent content={review} />
             ) : !loading ? (
               <EmptyState
                 icon={<Sparkles className="size-5" />}
@@ -188,48 +167,52 @@ export function AiPanel({
 
         {activeTab === "hints" && (
           <div className="space-y-3">
-            <div className="flex gap-2">
-              {[1, 2, 3].map((n) => {
-                const unlocked = hintCount >= n;
-                const available = !unlocked && (n === 1 || hintCount >= n - 1);
-                return (
-                  <button
-                    key={n}
-                    type="button"
-                    disabled={loading || unlocked || !available}
-                    onClick={() => onRequestHint(n)}
-                    className={cn(
-                      "flex flex-1 items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-medium transition-all",
-                      unlocked
-                        ? "border-primary/30 bg-primary/10 text-primary"
-                        : available
-                          ? "border-border/60 bg-muted/20 text-foreground/70 hover:border-primary/40 hover:bg-primary/8 hover:text-primary"
-                          : "cursor-not-allowed border-border/30 bg-transparent text-muted-foreground/30"
-                    )}
-                  >
-                    {!unlocked && !available && <Lock className="size-3" />}
-                    Hint {n}
-                  </button>
-                );
-              })}
-            </div>
+            <p className="text-xs text-muted-foreground">
+              {hintCount}/3 hints revealed. Use the{" "}
+              <Lightbulb className="inline size-3 text-amber-500" /> button above the editor for
+              quick access.
+            </p>
 
-            {hints.length === 0 && (
+            {hintCount < 3 && (
+              <Button
+                size="sm"
+                className="w-full"
+                disabled={loading}
+                onClick={() => onRequestHint(hintCount + 1)}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                    Loading…
+                  </>
+                ) : (
+                  <>
+                    <Lightbulb className="mr-1.5 size-3.5" />
+                    Reveal hint {hintCount + 1}
+                  </>
+                )}
+              </Button>
+            )}
+
+            {hints.filter((h) => h.trim()).length === 0 && !loading && (
               <EmptyState
                 icon={<Lightbulb className="size-5" />}
-                title="Get a nudge"
+                title="No hints yet"
                 description="Reveal hints one at a time without spoiling the solution."
               />
             )}
-            {hints.map((h, i) => (
-              <div key={i} className="rounded-lg border border-border/40 bg-muted/20 p-3">
-                <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary/70">
-                  <Lightbulb className="size-3" />
-                  Hint {i + 1}
-                </p>
-                <MarkdownContent content={h} />
-              </div>
-            ))}
+            {hints.map(
+              (h, i) =>
+                h.trim() && (
+                  <div key={i} className="sub-card p-3">
+                    <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-primary/70">
+                      <Lightbulb className="size-3" />
+                      Hint {i + 1}
+                    </p>
+                    <MarkdownContent content={h} />
+                  </div>
+                )
+            )}
           </div>
         )}
 
@@ -426,7 +409,7 @@ function EmptyState({
   description: string;
 }) {
   return (
-    <div className="flex flex-col items-center rounded-xl border border-dashed border-border/40 bg-muted/10 px-4 py-8 text-center">
+    <div className="sub-card flex flex-col items-center border-dashed px-4 py-8 text-center">
       <div className="mb-3 text-muted-foreground/40">{icon}</div>
       <p className="text-sm font-medium text-foreground/60">{title}</p>
       <p className="mt-1 text-xs leading-relaxed text-muted-foreground/50">{description}</p>
@@ -436,7 +419,7 @@ function EmptyState({
 
 function LoadingState({ text }: { text: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-dashed border-border/40 bg-muted/10 px-4 py-5">
+    <div className="sub-card flex items-center gap-3 border-dashed px-4 py-5">
       <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
       <p className="text-sm text-muted-foreground">{text}</p>
     </div>

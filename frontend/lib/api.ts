@@ -33,6 +33,7 @@ export type LearningPathProblem = {
 export type LearningPathOut = {
   problems: LearningPathProblem[];
   message: string;
+  next_problems: LearningPathProblem[];
 };
 
 function formatApiError(detail: unknown): string {
@@ -64,6 +65,20 @@ export async function apiFetch<T>(
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
+
+export type SubmissionOut = {
+  id: string;
+  user_id: string;
+  problem_id: string;
+  code: string;
+  language: string;
+  llm_review: string | null;
+  improved_code: string | null;
+  hints_used: number;
+  solution_viewed: boolean;
+  score: number | null;
+  created_at: string;
+};
 
 export type SubmissionHistoryItem = {
   id: string;

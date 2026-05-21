@@ -1,7 +1,7 @@
 .PHONY: install dev-backend dev-frontend test lint format build \
         docker-up docker-down docker-build docker-logs docker-restart \
         piston-up piston-init piston-down \
-        scrape-oss insert-oss migrate help
+        scrape-oss insert-oss scrape-leetcode ingest-leetcode migrate generate-hints apply-hints help
 
 # ── Local development ────────────────────────────────────────────
 install: ## Install all dependencies
@@ -44,8 +44,12 @@ docker-down: ## Stop and remove all containers
 docker-logs: ## Tail logs from all services (Ctrl+C to stop)
 	docker compose logs -f
 
-docker-restart: ## Restart all containers without rebuilding
-	docker compose restart
+docker-restart: ## Rebuild images and recreate all containers
+	docker compose up -d --build --force-recreate
+	@echo ""
+	@echo "  Frontend → http://localhost:3000"
+	@echo "  Backend  → http://localhost:8000"
+	@echo "  Piston   → http://localhost:2000"
 
 piston-init: ## Install Python runtime into Piston (run once after docker-up)
 	@echo "Waiting for Piston to be ready..."
@@ -70,11 +74,26 @@ scrape-oss: ## Clone OSS repos and parse into backend/seeds/data/oss_problems.js
 insert-oss: ## Insert backend/seeds/data/oss_problems.json into DB (run after reviewing)
 	cd backend && uv run python -m seeds.ingest_oss --insert
 
+scrape-leetcode: ## Fetch Garvit244/Leetcode → backend/seeds/data/garvit_leetcode.json
+	cd backend && uv run python -m seeds.ingest_leetcode --scrape-only
+
+ingest-leetcode: ## Scrape Garvit244/Leetcode and insert problems + solutions into DB
+	cd backend && uv run python -m seeds.ingest_leetcode
+
 enrich-problems: ## Bulk-enrich problem tags+difficulty via Claude Haiku (writes enriched_patch.json)
 	cd backend && uv run python -m seeds.enrich_problems
 
 apply-enrichment: ## Apply enriched_patch.json to DB
 	cd backend && uv run python -m seeds.enrich_problems --apply
+
+generate-hints: ## Bulk-prefetch hints via Haiku (optional; runtime lazy-generates on first hint)
+	cd backend && uv run python -m seeds.generate_hints --only-missing
+
+apply-hints: ## Apply hints_patch.json to problems.hints in DB
+	cd backend && uv run python -m seeds.generate_hints --apply
+
+sync-curated: ## Sync curated descriptions/examples into DB (default: fizzbuzz)
+	cd backend && uv run python -m seeds.sync_curated
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \

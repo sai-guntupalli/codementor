@@ -21,12 +21,12 @@ export function CodeEditor({ value, onChange, language, className }: CodeEditorP
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border border-border/80 shadow-card ring-1 ring-border/40",
+        "flex h-full min-h-[200px] flex-col overflow-hidden rounded-xl border border-border/60 shadow-card",
         className
       )}
     >
       <Monaco
-        height="calc(100vh - 14rem)"
+        height="100%"
         language={monacoLanguage(language)}
         value={value}
         onChange={(v) => onChange(v ?? "")}

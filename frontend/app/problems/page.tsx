@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, ListChecks, Search, X } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { PageContent, PageHero, PageSection } from "@/components/layout/page-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
@@ -51,6 +52,37 @@ const DIFFICULTIES = [
   { label: "Hard", value: "hard" },
 ];
 
+function FilterPills({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { label: string; value: string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => onChange(opt.value)}
+          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+            value === opt.value
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-border bg-muted/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function ProblemsPage() {
   const router = useRouter();
   const [problems, setProblems] = useState<Problem[]>([]);
@@ -73,10 +105,12 @@ export default function ProblemsPage() {
       }
       setToken(t);
       try {
-        const data = await apiFetch<SolvedProblemIdsOut>("/submissions/me/problem-ids", { token: t });
+        const data = await apiFetch<SolvedProblemIdsOut>("/submissions/me/problem-ids", {
+          token: t,
+        });
         setSolvedIds(new Set(data.solved_ids));
       } catch {
-        // non-critical — solved badges just won't show
+        // non-critical
       }
     }
     authenticate();
@@ -87,7 +121,10 @@ export default function ProblemsPage() {
       setLoading(true);
       setError(null);
       try {
-        const params = new URLSearchParams({ page: String(currentPage), page_size: String(PAGE_SIZE) });
+        const params = new URLSearchParams({
+          page: String(currentPage),
+          page_size: String(PAGE_SIZE),
+        });
         if (currentFilters.language) params.set("language", currentFilters.language);
         if (currentFilters.difficulty) params.set("difficulty", currentFilters.difficulty);
         if (currentFilters.topic) params.set("topic", currentFilters.topic);
@@ -96,7 +133,11 @@ export default function ProblemsPage() {
         setTotal(data.total);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to load problems";
-        if (message.includes("Token expired") || message.includes("Invalid token") || message.includes("Unauthorized")) {
+        if (
+          message.includes("Token expired") ||
+          message.includes("Invalid token") ||
+          message.includes("Unauthorized")
+        ) {
           router.replace("/login");
           return;
         }
@@ -133,76 +174,59 @@ export default function ProblemsPage() {
 
   return (
     <AppShell>
-      <main className="flex min-h-0 flex-col bg-background">
-      <div className="mx-auto max-w-3xl px-6 py-10">
-        <p className="mb-6 text-muted-foreground">
-          Pick a challenge to practice in the IDE with live AI feedback.
-        </p>
+      <PageContent width="md">
+        <PageHero
+          icon={<ListChecks className="size-5" />}
+          eyebrow="Practice library"
+          title="Problems"
+          description="Pick a challenge to practice in the IDE with live AI feedback."
+        />
 
-        {/* Filter bar */}
-        <div className="mb-6 space-y-3">
-          <div className="flex flex-wrap gap-2">
-            <span className="flex items-center text-xs font-medium text-muted-foreground">Language:</span>
-            {LANGUAGES.map((l) => (
-              <button
-                key={l.value}
-                onClick={() => setFilter("language", l.value)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                  filters.language === l.value
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-muted/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                }`}
-              >
-                {l.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <span className="flex items-center text-xs font-medium text-muted-foreground">Difficulty:</span>
-            {DIFFICULTIES.map((d) => (
-              <button
-                key={d.value}
-                onClick={() => setFilter("difficulty", d.value)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                  filters.difficulty === d.value
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-border bg-muted/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                }`}
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Filter by topic (e.g. arrays, dynamic programming)"
-                value={topicInput}
-                onChange={(e) => setTopicInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && applyTopicSearch()}
-                className="h-8 w-full rounded-lg border border-border bg-background pl-8 pr-8 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-              />
-              {topicInput && (
-                <button
-                  onClick={clearTopicSearch}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="size-3.5" />
-                </button>
-              )}
+        <PageSection
+          title="Filters"
+          icon={<Search className="size-4 text-primary" />}
+        >
+          <div className="space-y-4 p-4 md:p-5">
+            <FilterPills
+              label="Language:"
+              options={LANGUAGES}
+              value={filters.language}
+              onChange={(v) => setFilter("language", v)}
+            />
+            <FilterPills
+              label="Difficulty:"
+              options={DIFFICULTIES}
+              value={filters.difficulty}
+              onChange={(v) => setFilter("difficulty", v)}
+            />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Filter by topic (e.g. arrays, strings)"
+                  value={topicInput}
+                  onChange={(e) => setTopicInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && applyTopicSearch()}
+                  className="h-9 w-full rounded-lg border border-border bg-background pl-8 pr-8 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+                {topicInput && (
+                  <button
+                    onClick={clearTopicSearch}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                )}
+              </div>
+              <Button size="sm" variant="outline" onClick={applyTopicSearch}>
+                Search
+              </Button>
             </div>
-            <Button size="sm" variant="outline" onClick={applyTopicSearch}>
-              Search
-            </Button>
           </div>
-        </div>
+        </PageSection>
 
-        {/* Count + reset row */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center justify-between px-1">
           {!loading && (
             <p className="text-xs text-muted-foreground">
               {total === 0
@@ -217,7 +241,7 @@ export default function ProblemsPage() {
                 setTopicInput("");
                 setPage(1);
               }}
-              className="ml-auto text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             >
               Clear filters
             </button>
@@ -227,7 +251,7 @@ export default function ProblemsPage() {
         {loading && (
           <ul className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
-              <li key={i} className="h-20 animate-pulse rounded-xl border border-border/50 bg-muted/30" />
+              <li key={i} className="panel-card h-20 animate-pulse bg-card/60" />
             ))}
           </ul>
         )}
@@ -239,14 +263,15 @@ export default function ProblemsPage() {
         )}
 
         {!loading && !error && problems.length === 0 && (
-          <div className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-12 text-center">
-            <p className="text-sm text-muted-foreground">
+          <div className="panel-card px-4 py-12 text-center">
+            <ListChecks className="mx-auto size-8 text-muted-foreground/40" />
+            <p className="mt-3 text-sm text-muted-foreground">
               {hasActiveFilters
                 ? "No problems match your filters."
                 : "No problems yet. Run "}
             </p>
             {!hasActiveFilters && (
-              <code className="mt-1 inline-block rounded bg-muted px-2 py-1 font-mono text-xs text-foreground">
+              <code className="mt-2 inline-block rounded-lg bg-muted px-2 py-1 font-mono text-xs text-foreground">
                 cd backend && uv run python -m seeds.problems
               </code>
             )}
@@ -256,11 +281,11 @@ export default function ProblemsPage() {
         {!loading && !error && problems.length > 0 && (
           <>
             <ul className="space-y-3">
-              {problems.map((p, idx) => (
+              {problems.map((p) => (
                 <li key={p.id}>
                   <Link
                     href={`/practice/${p.id}`}
-                    className="group flex items-center justify-between gap-4 rounded-xl border border-border/80 bg-card p-5 shadow-card transition-all hover:border-primary/25 hover:shadow-lg"
+                    className="panel-card group flex items-center justify-between gap-4 bg-card p-4 transition-all hover:shadow-[var(--shadow-panel-hover)] md:p-5"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start gap-3">
@@ -283,7 +308,10 @@ export default function ProblemsPage() {
                             <Badge variant="secondary" className="capitalize">
                               {p.language}
                             </Badge>
-                            <Badge variant={difficultyBadgeVariant(p.difficulty)} className="capitalize">
+                            <Badge
+                              variant={difficultyBadgeVariant(p.difficulty)}
+                              className="capitalize"
+                            >
                               {p.difficulty}
                             </Badge>
                             {p.topic?.slice(0, 3).map((t) => (
@@ -309,9 +337,8 @@ export default function ProblemsPage() {
               ))}
             </ul>
 
-            {/* Pagination */}
             {totalPages > 1 && (
-              <div className="mt-8 flex items-center justify-center gap-3">
+              <div className="flex items-center justify-center gap-3 pt-2">
                 <Button
                   size="sm"
                   variant="outline"
@@ -337,8 +364,7 @@ export default function ProblemsPage() {
             )}
           </>
         )}
-      </div>
-      </main>
+      </PageContent>
     </AppShell>
   );
 }

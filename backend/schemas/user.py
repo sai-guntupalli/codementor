@@ -45,3 +45,4 @@ class LearningPathProblem(BaseModel):
 class LearningPathOut(BaseModel):
     problems: list[LearningPathProblem]
     message: str
+    next_problems: list[LearningPathProblem] = []

@@ -11,11 +11,12 @@ from sqlalchemy.orm import Session
 
 from core.deps import get_current_user
 from db.session import get_db
+from llm.hints import ensure_problem_hints
 from llm.openrouter import stream_chat
 from llm.practice import (
     EXPLAIN_STYLES,
     SOLUTION_LEVELS,
-    hint_variables,
+    get_stored_hint,
     parse_surprise_problem_json,
     problem_text,
     solution_variables,
@@ -24,7 +25,12 @@ from llm.practice import (
 )
 from llm.registry import load_and_render
 from llm.router import resolve_model
-from llm.streaming import log_stream_usage, sse_response, stream_llm_to_sse
+from llm.streaming import (
+    log_stream_usage,
+    sse_response,
+    stream_llm_to_sse,
+    stream_static_to_sse,
+)
 from models.learning import Problem, Submission
 from models.users import User
 from schemas.practice import (
@@ -179,22 +185,25 @@ async def request_hint(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> StreamingResponse:
-    """PRAC-04: Progressive hint (1–3) without revealing the solution."""
+    """PRAC-04: Progressive hint from problems.hints; lazy-generates all 3 on first use."""
     problem = _get_problem(db, problem_id)
-    variables = hint_variables(problem, current_user, body.code, body.hint_number)
-    rendered = load_and_render(db, "hint_generator", variables)
-    model = resolve_model(db, current_user)
-    messages = [{"role": "user", "content": rendered}]
+    try:
+        problem = await ensure_problem_hints(db, problem, current_user)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to generate hints: {exc}",
+        ) from exc
+
+    stored = get_stored_hint(problem, body.hint_number)
+    if not stored:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Hint {body.hint_number} is not available.",
+        )
 
     async def event_generator():
-        async for line in _stream_with_usage_log(
-            db,
-            current_user,
-            event_type="hint",
-            prompt_name="hint_generator",
-            model=model,
-            messages=messages,
-        ):
+        async for line in stream_static_to_sse(stored):
             yield line
 
         submission = (

@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Settings, Sun, User } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { PageContent, PageHero, PageSection, PageSkeleton } from "@/components/layout/page-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
 import { getValidatedAccessToken } from "@/lib/auth-session";
 import { apiFetch, type UserOut } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 const PROFILE_LEVELS = [
   { value: "kid", label: "Kid (ages 8–12)" },
@@ -73,30 +75,26 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-2xl px-6 py-10 space-y-6">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-36 animate-pulse rounded-2xl border border-border/50 bg-muted/40" />
-          ))}
-        </div>
+        <PageSkeleton rows={2} />
       </AppShell>
     );
   }
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-2xl px-6 py-10">
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage your profile and preferences.
-        </p>
+      <PageContent width="sm">
+        <PageHero
+          icon={<Settings className="size-5" />}
+          title="Settings"
+          description="Manage your profile and preferences."
+        />
 
-        {/* Profile */}
-        <section className="mt-8 rounded-2xl border border-border/80 bg-card p-6 shadow-card">
-          <h2 className="font-semibold">Profile</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
-            Your public display name and experience level.
-          </p>
-          <form onSubmit={handleSave} className="mt-5 space-y-4">
+        <PageSection
+          title="Profile"
+          description="Your public display name and experience level."
+          icon={<User className="size-4 text-primary" />}
+        >
+          <form onSubmit={handleSave} className="space-y-4 p-4 md:p-5">
             <div>
               <label
                 className="mb-1.5 block text-xs font-medium text-foreground/80"
@@ -125,72 +123,83 @@ export default function SettingsPage() {
                     key={value}
                     type="button"
                     onClick={() => setProfileLevel(value)}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    className={cn(
+                      "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
                       profileLevel === value
                         ? "border-primary bg-primary/10 text-primary"
-                        : "border-border bg-background text-muted-foreground hover:border-border/60 hover:text-foreground"
-                    }`}
+                        : "border-border bg-background text-muted-foreground hover:text-foreground"
+                    )}
                   >
                     {label}
                   </button>
                 ))}
               </div>
             </div>
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex items-center gap-3 pt-1">
               <Button type="submit" size="sm" disabled={saving}>
                 {saving ? "Saving…" : "Save changes"}
               </Button>
               {saved && (
                 <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                  ✓ Saved
+                  Saved
                 </span>
               )}
             </div>
           </form>
-        </section>
+        </PageSection>
 
-        {/* Account info (read-only) */}
-        <section className="mt-4 rounded-2xl border border-border/80 bg-card p-6 shadow-card">
-          <h2 className="font-semibold">Account</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">Your account details.</p>
-          <div className="mt-4">
+        <PageSection title="Account" description="Your account details.">
+          <div className="p-4 md:p-5">
             <p className="text-xs text-muted-foreground">Email</p>
             <p className="mt-0.5 text-sm font-medium">{profile?.email}</p>
           </div>
-        </section>
+        </PageSection>
 
-        {/* Appearance */}
-        <section className="mt-4 rounded-2xl border border-border/80 bg-card p-6 shadow-card">
-          <h2 className="font-semibold">Appearance</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">Choose your preferred theme.</p>
-          <div className="mt-4 flex gap-2">
-            <button
-              type="button"
+        <PageSection title="Appearance" description="Choose your preferred theme.">
+          <div className="flex gap-2 p-4 md:p-5">
+            <ThemeButton
+              active={theme === "light"}
               onClick={() => setTheme("light")}
-              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                theme === "light"
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Sun className="size-3.5" />
-              Light
-            </button>
-            <button
-              type="button"
+              icon={<Sun className="size-3.5" />}
+              label="Light"
+            />
+            <ThemeButton
+              active={theme === "dark"}
               onClick={() => setTheme("dark")}
-              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
-                theme === "dark"
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Moon className="size-3.5" />
-              Dark
-            </button>
+              icon={<Moon className="size-3.5" />}
+              label="Dark"
+            />
           </div>
-        </section>
-      </div>
+        </PageSection>
+      </PageContent>
     </AppShell>
+  );
+}
+
+function ThemeButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
+        active
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-border bg-background text-muted-foreground hover:text-foreground"
+      )}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

@@ -63,3 +63,15 @@ def test_list_solved_problem_ids_requires_auth(client: TestClient):
     """GET /submissions/me/problem-ids without token returns 401."""
     res = client.get("/submissions/me/problem-ids")
     assert res.status_code == 401
+
+
+def test_get_latest_submission_by_problem_not_found(auth_client: TestClient):
+    """GET /submissions/me/by-problem/{id} returns 404 when user has not submitted."""
+    res = auth_client.get(f"/submissions/me/by-problem/{uuid.uuid4()}")
+    assert res.status_code == 404
+
+
+def test_get_latest_submission_by_problem_requires_auth(client: TestClient):
+    """GET /submissions/me/by-problem/{id} without token returns 401."""
+    res = client.get(f"/submissions/me/by-problem/{uuid.uuid4()}")
+    assert res.status_code == 401
