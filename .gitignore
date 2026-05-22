@@ -37,3 +37,4 @@ frontend/.env.*.local
 
 # Screenshots
 *.png
+.claude/worktrees/
