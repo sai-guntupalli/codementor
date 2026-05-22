@@ -26,7 +26,7 @@ def upgrade() -> None:
 
     op.create_table(
         'learning_paths',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
         sa.Column('title', sa.String(), nullable=False),
         sa.Column('description', sa.String(), nullable=True),
         sa.Column(
@@ -55,7 +55,7 @@ def upgrade() -> None:
 
     op.create_table(
         'learning_path_problems',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
         sa.Column(
             'learning_path_id',
             postgresql.UUID(as_uuid=True),
