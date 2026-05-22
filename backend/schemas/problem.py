@@ -2,7 +2,9 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from core.problem_titles import strip_curriculum_prefix
 
 
 class ProblemListItem(BaseModel):
@@ -10,6 +12,11 @@ class ProblemListItem(BaseModel):
 
     id: uuid.UUID
     title: str
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def _strip_title(cls, value: object) -> object:
+        return strip_curriculum_prefix(value) if isinstance(value, str) else value
     slug: str | None
     language: str
     difficulty: str
@@ -26,6 +33,11 @@ class ProblemPublicOut(BaseModel):
 
     id: uuid.UUID
     title: str
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def _strip_title(cls, value: object) -> object:
+        return strip_curriculum_prefix(value) if isinstance(value, str) else value
     slug: str | None
     description: str
     language: str

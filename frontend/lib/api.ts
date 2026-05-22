@@ -30,12 +30,51 @@ export type LearningPathProblem = {
   language: string;
 };
 
+/** Legacy personalized path payload from GET /users/me/learning-path */
 export type LearningPathOut = {
   problems: LearningPathProblem[];
   message: string;
   next_problems: LearningPathProblem[];
   library_total: number;
   difficulties: string[];
+};
+
+export type LearningPathProgress = {
+  solved_count: number;
+  total_count: number;
+  progress_pct: number;
+};
+
+export type LearningPathListItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  type: "curated" | "personalized" | "custom";
+  created_by: string | null;
+  is_public: boolean;
+  sort_order: number | null;
+  created_at: string;
+  progress: LearningPathProgress;
+};
+
+export type LearningPathProblemItem = {
+  id: string;
+  title: string;
+  slug: string | null;
+  difficulty: string;
+  topic: string[];
+  language: string;
+  solved: boolean;
+};
+
+export type LearningPathCreate = {
+  title: string;
+  description?: string | null;
+};
+
+export type LearningPathUpdate = {
+  title?: string;
+  description?: string | null;
 };
 
 export type ProblemListItem = {

@@ -95,6 +95,21 @@ apply-hints: ## Apply hints_patch.json to problems.hints in DB
 sync-curated: ## Sync curated descriptions/examples into DB (default: fizzbuzz)
 	cd backend && uv run python -m seeds.sync_curated
 
+normalize-problems: ## LLM-rewrite problem copy → seeds/data/normalized_patch.json
+	cd backend && uv run python -m seeds.normalize_problems
+
+apply-normalization: ## Apply normalized_patch.json + strip curriculum title prefixes
+	cd backend && uv run python -m seeds.normalize_problems --apply
+
+strip-problem-titles: ## Strip 01.5-style prefixes from all problem titles in DB
+	cd backend && uv run python -m seeds.strip_problem_titles
+
+fix-random-examples: ## Fix random tasks that had deterministic test examples
+	cd backend && uv run python -m seeds.fix_nondeterministic_examples
+
+seed-learning-paths: ## Create curated learning paths (one per topic)
+	cd backend && uv run python -m seeds.learning_paths --sync
+
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-22s\033[0m %s\n", $$1, $$2}'

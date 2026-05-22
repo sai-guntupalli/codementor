@@ -4,12 +4,13 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import func as sqlfunc
 from sqlalchemy.orm import Session
 
 from core.deps import get_current_user
 from core.learning_path import EXPERIENCE_MESSAGES, build_learning_path, fetch_ranked_candidates
+from core.problem_titles import strip_curriculum_prefix
 from core.streak import recompute_streak
 from db.session import get_db
 from models.learning import Problem, Submission
@@ -24,6 +25,11 @@ class LearningPathProblem(BaseModel):
     difficulty: str
     topic: list[str]
     language: str
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def _strip_title(cls, value: object) -> object:
+        return strip_curriculum_prefix(value) if isinstance(value, str) else value
 
     model_config = {"from_attributes": True}
 
@@ -69,7 +75,7 @@ def get_dashboard(
         {
             "id": str(s.id),
             "problem_id": str(s.problem_id),
-            "problem_title": title,
+            "problem_title": strip_curriculum_prefix(title),
             "language": s.language,
             "score": s.score,
             "hints_used": s.hints_used,
@@ -79,7 +85,7 @@ def get_dashboard(
     ]
 
     candidates = fetch_ranked_candidates(db, current_user)
-    selected, _ = build_learning_path(candidates, user=current_user)
+    selected, _ = build_learning_path(candidates)
 
     experience = getattr(current_user, "coding_experience", None) or "none"
     message = EXPERIENCE_MESSAGES.get(experience, "Your personalized learning path.")

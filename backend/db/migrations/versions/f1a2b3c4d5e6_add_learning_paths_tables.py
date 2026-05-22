@@ -1,7 +1,7 @@
 """add_learning_paths_tables
 
 Revision ID: f1a2b3c4d5e6
-Revises: 5eff9d6355d1
+Revises: b7c3d4e5f6a7
 Create Date: 2026-05-22 00:00:00.000000
 
 """
@@ -13,74 +13,67 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = 'f1a2b3c4d5e6'
-down_revision: Union[str, Sequence[str], None] = '5eff9d6355d1'
+down_revision: Union[str, Sequence[str], None] = 'b7c3d4e5f6a7'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
     """Create learning_paths and learning_path_problems tables."""
-    # Create the enum type
-    learningpathtype = postgresql.ENUM('curated', 'personalized', 'custom', name='learningpathtype')
-    learningpathtype.create(op.get_bind())
+    # Use raw SQL to avoid SQLAlchemy auto-creating the enum type
+    op.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'learningpathtype') THEN
+                CREATE TYPE learningpathtype AS ENUM ('curated', 'personalized', 'custom');
+            END IF;
+        END $$;
+    """)
 
-    op.create_table(
-        'learning_paths',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
-        sa.Column('title', sa.String(), nullable=False),
-        sa.Column('description', sa.String(), nullable=True),
-        sa.Column(
-            'type',
-            sa.Enum('curated', 'personalized', 'custom', name='learningpathtype', create_type=False),
-            nullable=False,
-        ),
-        sa.Column('created_by', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
-        sa.Column('is_public', sa.Boolean(), nullable=False, server_default=sa.text('false')),
-        sa.Column('sort_order', sa.Integer(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()')),
-        sa.CheckConstraint(
-            "type = 'curated' OR created_by IS NOT NULL",
-            name='ck_learning_paths_created_by_required',
-        ),
-    )
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS learning_paths (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            title VARCHAR NOT NULL,
+            description VARCHAR,
+            type learningpathtype NOT NULL,
+            created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+            is_public BOOLEAN NOT NULL DEFAULT false,
+            sort_order INTEGER,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            CONSTRAINT ck_learning_paths_created_by_required
+                CHECK (type = 'curated' OR created_by IS NOT NULL)
+        );
+    """)
 
-    # Partial unique index: one personalized path per user
-    op.create_index(
-        'uq_personalized_path_per_user',
-        'learning_paths',
-        ['created_by'],
-        unique=True,
-        postgresql_where=sa.text("type = 'personalized'"),
-    )
+    op.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_personalized_path_per_user
+        ON learning_paths (created_by)
+        WHERE type = 'personalized';
+    """)
 
-    op.create_table(
-        'learning_path_problems',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
-        sa.Column(
-            'learning_path_id',
-            postgresql.UUID(as_uuid=True),
-            sa.ForeignKey('learning_paths.id', ondelete='CASCADE'),
-            nullable=False,
-            index=True,
-        ),
-        sa.Column(
-            'problem_id',
-            postgresql.UUID(as_uuid=True),
-            sa.ForeignKey('problems.id', ondelete='CASCADE'),
-            nullable=False,
-            index=True,
-        ),
-        sa.Column('added_at', sa.DateTime(timezone=True), server_default=sa.text('now()')),
-        sa.UniqueConstraint('learning_path_id', 'problem_id', name='uq_learning_path_problem'),
-    )
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS learning_path_problems (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            learning_path_id UUID NOT NULL REFERENCES learning_paths(id) ON DELETE CASCADE,
+            problem_id UUID NOT NULL REFERENCES problems(id) ON DELETE CASCADE,
+            added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            CONSTRAINT uq_learning_path_problem UNIQUE (learning_path_id, problem_id)
+        );
+    """)
+
+    op.execute("""
+        CREATE INDEX IF NOT EXISTS ix_learning_path_problems_learning_path_id
+        ON learning_path_problems (learning_path_id);
+    """)
+
+    op.execute("""
+        CREATE INDEX IF NOT EXISTS ix_learning_path_problems_problem_id
+        ON learning_path_problems (problem_id);
+    """)
 
 
 def downgrade() -> None:
     """Drop learning_paths and learning_path_problems tables."""
-    op.drop_table('learning_path_problems')
-    op.drop_index('uq_personalized_path_per_user', table_name='learning_paths')
-    op.drop_table('learning_paths')
-
-    # Drop the enum type
-    learningpathtype = postgresql.ENUM('curated', 'personalized', 'custom', name='learningpathtype')
-    learningpathtype.drop(op.get_bind())
+    op.execute("DROP TABLE IF EXISTS learning_path_problems;")
+    op.execute("DROP INDEX IF EXISTS uq_personalized_path_per_user;")
+    op.execute("DROP TABLE IF EXISTS learning_paths;")
+    op.execute("DROP TYPE IF EXISTS learningpathtype;")

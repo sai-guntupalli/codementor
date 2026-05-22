@@ -127,6 +127,7 @@ def run_insert() -> None:
     print(f"Inserting {len(problems)} problems into DB...")
 
     # Import DB deps here so scrape mode works without DB env vars
+    from core.problem_titles import strip_curriculum_prefix
     from db.session import SessionLocal
     from models.learning import Problem
 
@@ -145,7 +146,7 @@ def run_insert() -> None:
                 continue
 
             problem = Problem(
-                title=p["title"],
+                title=strip_curriculum_prefix(p["title"]),
                 slug=slug,
                 description=p["description"],
                 difficulty=p.get("difficulty", "easy"),

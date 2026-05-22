@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from api.stdin_util import normalize_stdin
 from core.config import settings
+from core.python_harness import wrap_python_function_harness
 from core.deps import get_current_user
 from models.users import User
 from schemas.execute import ExecuteRequest, ExecuteResult
@@ -32,11 +33,21 @@ async def execute_code(
         )
 
     runtime, version = PISTON_RUNTIMES[body.language]
+    code = body.code
+    stdin = normalize_stdin(body.stdin)
+    harnessed = False
+    if body.language == "python":
+        wrapped = wrap_python_function_harness(code, body.stdin)
+        if wrapped is not None:
+            code = wrapped
+            stdin = ""
+            harnessed = True
+
     payload = {
         "language": runtime,
         "version": version,
-        "files": [{"name": "main.py", "content": body.code}],
-        "stdin": normalize_stdin(body.stdin),
+        "files": [{"name": "main.py", "content": code}],
+        "stdin": stdin,
         "args": [],
         "compile_timeout": PISTON_COMPILE_TIMEOUT,
         "run_timeout": PISTON_RUN_TIMEOUT,
@@ -63,9 +74,12 @@ async def execute_code(
             stderr=run.get("stderr", ""),
             exit_code=run.get("code"),
             timed_out=False,
+            harnessed=harnessed,
         )
     except httpx.TimeoutException:
-        return ExecuteResult(stdout="", stderr="", exit_code=None, timed_out=True)
+        return ExecuteResult(
+            stdout="", stderr="", exit_code=None, timed_out=True, harnessed=harnessed
+        )
     except HTTPException:
         raise
     except httpx.HTTPError as exc:

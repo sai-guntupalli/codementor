@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
   CheckCircle2,
@@ -35,6 +35,7 @@ import {
   apiFetch,
   type LearningPathOut,
   type LearningPathProblem,
+  type LearningPathProblemItem,
   type SolvedProblemIdsOut,
   type SubmissionOut,
 } from "@/lib/api";
@@ -54,6 +55,7 @@ import {
   type TestCaseResult,
 } from "@/lib/execute-api";
 import { cn } from "@/lib/utils";
+import { resolvePracticePathId } from "@/lib/learning-path-context";
 
 type Example = {
   input: string;
@@ -83,6 +85,9 @@ type DescTab = "description" | "problems";
 export default function PracticePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathFromUrl = searchParams.get("path");
+  const [resolvedPathId, setResolvedPathId] = useState<string | null>(pathFromUrl);
 
   const [problem, setProblem] = useState<Problem | null>(null);
   const [problemList, setProblemList] = useState<ProblemListItem[]>([]);
@@ -152,17 +157,29 @@ export default function PracticePage() {
       const token = await getToken();
       if (!token || !id) return;
       try {
+        const pathId = await resolvePracticePathId(token, id, pathFromUrl);
+        setResolvedPathId(pathId);
+
+        const pathFetch = pathId
+          ? apiFetch<LearningPathProblemItem[]>(
+              `/learning-paths/${pathId}/problems`,
+              { token }
+            )
+              .then((items) => ({ problems: items as LearningPathProblem[] }))
+              .catch(() => ({ problems: [] as LearningPathProblem[] }))
+          : apiFetch<LearningPathOut>("/users/me/learning-path", { token }).catch(() => ({
+              problems: [] as LearningPathProblem[],
+              next_problems: [] as LearningPathProblem[],
+              message: "",
+            }));
+
         const [p, list, solved, path] = await Promise.all([
           apiFetch<Problem>(`/problems/${id}`, { token }),
           apiFetch<{ items: ProblemListItem[] }>("/problems?page_size=20", { token }),
           apiFetch<SolvedProblemIdsOut>("/submissions/me/problem-ids", { token }).catch(
             () => ({ solved_ids: [] as string[] })
           ),
-          apiFetch<LearningPathOut>("/users/me/learning-path", { token }).catch(() => ({
-            problems: [] as LearningPathProblem[],
-            next_problems: [] as LearningPathProblem[],
-            message: "",
-          })),
+          pathFetch,
         ]);
         setProblem(p);
         setProblemList(list.items);
@@ -221,7 +238,19 @@ export default function PracticePage() {
     }
     setLoading(true);
     load();
-  }, [id, getToken]);
+  }, [id, pathFromUrl, getToken]);
+
+  const sidebarProblems = useMemo(() => {
+    if (learningPath.length > 0) {
+      return learningPath.map((p) => ({
+        id: p.id,
+        title: p.title,
+        language: p.language,
+        difficulty: p.difficulty,
+      }));
+    }
+    return problemList;
+  }, [learningPath, problemList]);
 
   useEffect(() => {
     if (!id || !code) return;
@@ -333,6 +362,10 @@ export default function PracticePage() {
         const next = learningPath[pathIdx + 1];
         return { id: next.id, title: next.title };
       }
+      return null;
+    }
+    if (resolvedPathId && learningPath.length > 0) {
+      return null;
     }
     const listIdx = problemList.findIndex((p) => p.id === problem.id);
     for (let i = listIdx + 1; i < problemList.length; i++) {
@@ -341,7 +374,7 @@ export default function PracticePage() {
       }
     }
     return null;
-  }, [problem, learningPath, problemList, solvedIds]);
+  }, [problem, learningPath, problemList, solvedIds, resolvedPathId]);
 
   const showNextProblem = !!nextProblem && (submissionPassed || isPreviouslySolved);
 
@@ -664,12 +697,15 @@ export default function PracticePage() {
             {showSkip && (
               <NextProblemButton
                 next={nextProblem}
+                pathId={resolvedPathId}
                 variant="outline"
                 label="Skip"
                 title="Next problem without submitting"
               />
             )}
-            {showNextProblem && <NextProblemButton next={nextProblem} />}
+            {showNextProblem && (
+              <NextProblemButton next={nextProblem} pathId={resolvedPathId} />
+            )}
           </>
         }
       />
@@ -789,9 +825,10 @@ export default function PracticePage() {
                 problem={problem}
                 descTab={descTab}
                 onDescTabChange={setDescTab}
-                problemList={problemList}
+                problemList={sidebarProblems}
                 currentId={problem.id}
                 solvedIds={solvedIds}
+                pathId={resolvedPathId}
                 onMinimize={() => setDescMinimized(true)}
               />
             </PracticePanel>
@@ -864,6 +901,7 @@ function DescriptionPanel({
   problemList,
   currentId,
   solvedIds,
+  pathId,
   onMinimize,
 }: {
   problem: Problem;
@@ -872,8 +910,14 @@ function DescriptionPanel({
   problemList: ProblemListItem[];
   currentId: string;
   solvedIds: Set<string>;
+  pathId?: string | null;
   onMinimize: () => void;
 }) {
+  function practiceHref(problemId: string) {
+    const base = `/practice/${problemId}`;
+    return pathId ? `${base}?path=${encodeURIComponent(pathId)}` : base;
+  }
+
   return (
     <>
       <div className="flex shrink-0 items-center gap-1 border-b border-border/50 bg-muted/30 p-1.5">
@@ -902,7 +946,7 @@ function DescriptionPanel({
             )}
           >
             <ListTodo className="size-3.5" />
-            Problems
+            {pathId ? "Path" : "Problems"}
           </button>
         </div>
         <button
@@ -923,11 +967,16 @@ function DescriptionPanel({
           </div>
         ) : (
           <nav className="p-2">
+            {problemList.length === 0 ? (
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                {pathId ? "No problems in this path yet." : "No problems to show."}
+              </p>
+            ) : (
             <ul className="space-y-1">
               {problemList.map((p) => (
                 <li key={p.id}>
                   <Link
-                    href={`/practice/${p.id}`}
+                    href={practiceHref(p.id)}
                     className={cn(
                       "flex items-start gap-2 rounded-lg border-l-[3px] px-3 py-2.5 text-sm transition-all",
                       p.id === currentId
@@ -951,11 +1000,12 @@ function DescriptionPanel({
                 </li>
               ))}
             </ul>
+            )}
             <Link
-              href="/problems"
+              href={pathId ? `/learn/${pathId}` : "/problems"}
               className="sub-card mt-3 block rounded-lg px-3 py-2 text-center text-xs font-medium text-primary transition-colors hover:bg-primary/5"
             >
-              Browse all problems →
+              {pathId ? "Back to learning path →" : "Browse all problems →"}
             </Link>
           </nav>
         )}
@@ -1137,13 +1187,18 @@ function OutputPanel({
 
       <div className="border-b border-white/8 px-3 py-2.5">
         <label className="mb-1.5 block text-[10px] font-medium uppercase tracking-wider text-white/35">
-          Stdin (for input())
+          Test input
         </label>
+        <p className="mb-1.5 text-[10px] leading-snug text-white/30">
+          Script: one value per line for <code className="text-white/50">input()</code>.
+          Function: a Python literal like <code className="text-white/50">[1, 2, 3]</code> is
+          passed to your last <code className="text-white/50">def</code> automatically.
+        </p>
         <textarea
           value={runStdin}
           onChange={(e) => onRunStdinChange(e.target.value)}
           rows={3}
-          placeholder={"One value per line, e.g.\n4\n5"}
+          placeholder={"[1, 2, 3] or one line per input(), e.g.\n4\n5"}
           className="w-full resize-y rounded-lg border border-white/10 bg-black/30 px-2.5 py-2 font-mono text-xs text-white/80 placeholder:text-white/25 focus:border-primary/40 focus:outline-none"
         />
         <Button
@@ -1167,6 +1222,11 @@ function OutputPanel({
 
         {!running && showRunOnce && runOnceResult && (
           <div className="space-y-2 px-3 py-3 font-mono text-xs">
+            {runOnceResult.harnessed && (
+              <p className="font-sans text-[10px] text-primary/80">
+                Called your function with the test input; printed its return value.
+              </p>
+            )}
             {runOnceResult.timed_out && (
               <p className="text-amber-400">Timed out (check input() or infinite loop)</p>
             )}

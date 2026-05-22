@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -13,6 +13,11 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import {
+  AddToPathControl,
+  BulkAddBar,
+  useCustomPaths,
+} from "@/components/learning-path/add-to-path-control";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageContent, PageSkeleton } from "@/components/layout/page-layout";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +35,7 @@ import {
 } from "@/lib/api";
 import { difficultyBadgeVariant } from "@/lib/tags";
 import { cn } from "@/lib/utils";
+import { clearPracticePathContext } from "@/lib/learning-path-context";
 
 const PAGE_SIZE = 30;
 
@@ -159,6 +165,19 @@ function ProblemsPageContent() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [solvedIds, setSolvedIds] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<{ message: string; variant: "info" | "error" } | null>(
+    null
+  );
+
+  const {
+    customPaths,
+    membership,
+    refresh: refreshCustomPaths,
+    setCustomPaths,
+    setMembership,
+  } = useCustomPaths(token);
 
   const filters = useMemo(
     () => filtersFromSearchParams(searchParams),
@@ -299,6 +318,58 @@ function ProblemsPageContent() {
 
   const popularTags = facets?.popular_tags ?? [];
 
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  function showToast(message: string, variant: "info" | "error" = "info") {
+    setToast({ message, variant });
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
+
+  const pageProblemIds = useMemo(() => problems.map((p) => p.id), [problems]);
+  const allPageSelected =
+    pageProblemIds.length > 0 && pageProblemIds.every((id) => selectedIds.has(id));
+  const somePageSelected = pageProblemIds.some((id) => selectedIds.has(id));
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = somePageSelected && !allPageSelected;
+    }
+  }, [somePageSelected, allPageSelected]);
+
+  function toggleSelectAllOnPage() {
+    if (allPageSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of pageProblemIds) next.delete(id);
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        for (const id of pageProblemIds) next.add(id);
+        return next;
+      });
+    }
+  }
+
   const difficultyCounts = useMemo(() => {
     if (!facets) return undefined;
     const all = facets.total;
@@ -326,7 +397,13 @@ function ProblemsPageContent() {
 
   return (
     <AppShell>
-      <PageContent width="xl" className="space-y-3">
+      <PageContent
+        width="xl"
+        className={cn(
+          "space-y-3",
+          selectMode && selectedIds.size > 0 && "pb-24"
+        )}
+      >
         <section className="panel-card bg-card">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 px-3 py-2.5 md:px-4">
             <div className="flex min-w-0 items-center gap-2.5">
@@ -341,10 +418,21 @@ function ProblemsPageContent() {
               </div>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+              <Button
+                size="sm"
+                variant={selectMode ? "secondary" : "outline"}
+                className="h-7 px-2 text-xs"
+                onClick={() => {
+                  if (selectMode) exitSelectMode();
+                  else setSelectMode(true);
+                }}
+              >
+                {selectMode ? "Done" : "Select"}
+              </Button>
               <Link href="/learn">
                 <Button size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs">
                   <BookOpen className="size-3.5" />
-                  Path
+                  Paths
                 </Button>
               </Link>
               {facets && facets.unsolved_count > 0 && (
@@ -508,6 +596,20 @@ function ProblemsPageContent() {
           </div>
         </section>
 
+        {toast && (
+          <p
+            className={cn(
+              "rounded-lg border px-3 py-2 text-sm",
+              selectMode && selectedIds.size > 0 && "fixed bottom-20 left-4 right-4 z-[101] mx-auto max-w-xl shadow-lg md:left-auto md:right-6",
+              toast.variant === "error"
+                ? "border-destructive/20 bg-destructive/10 text-destructive"
+                : "border-border bg-card text-foreground"
+            )}
+          >
+            {toast.message}
+          </p>
+        )}
+
         {error && (
           <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}
@@ -533,40 +635,93 @@ function ProblemsPageContent() {
         {!loading && !error && problems.length > 0 && (
           <>
             <ul className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/50 bg-card">
+              {selectMode && (
+                <li className="flex items-center gap-2 border-b border-border/50 bg-muted/20 px-3 py-2 md:px-4">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    checked={allPageSelected}
+                    onChange={toggleSelectAllOnPage}
+                    className="size-4 shrink-0 rounded border-border"
+                    aria-label={
+                      allPageSelected
+                        ? "Deselect all on this page"
+                        : "Select all on this page"
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleSelectAllOnPage}
+                    className="text-xs font-medium text-foreground hover:text-primary"
+                  >
+                    {allPageSelected
+                      ? `Deselect all on page (${problems.length})`
+                      : `Select all on page (${problems.length})`}
+                  </button>
+                  {selectedIds.size > 0 && !allPageSelected && (
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {selectedIds.size} selected total
+                    </span>
+                  )}
+                </li>
+              )}
               {problems.map((p) => (
                 <li key={p.id}>
-                  <Link
-                    href={`/practice/${p.id}`}
-                    className="group flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/40 md:px-4"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate text-sm font-medium group-hover:text-primary">
-                          {p.title}
-                        </span>
-                        {solvedIds.has(p.id) && (
-                          <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
-                        )}
-                      </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                        <Badge variant="secondary" className="h-5 px-1.5 text-[10px] capitalize">
-                          {p.language}
-                        </Badge>
-                        <Badge
-                          variant={difficultyBadgeVariant(p.difficulty)}
-                          className="h-5 px-1.5 text-[10px] capitalize"
-                        >
-                          {p.difficulty}
-                        </Badge>
-                        {p.topic?.slice(0, 2).map((t) => (
-                          <span key={t} className="text-[10px] text-muted-foreground capitalize">
-                            {formatTagLabel(t)}
+                  <div className="group flex items-center gap-2 px-3 py-2.5 transition-colors hover:bg-muted/40 md:px-4">
+                    {selectMode && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(p.id)}
+                        onChange={() => toggleSelected(p.id)}
+                        className="size-4 shrink-0 rounded border-border"
+                        aria-label={`Select ${p.title}`}
+                      />
+                    )}
+                    <Link
+                      href={`/practice/${p.id}`}
+                      className="flex min-w-0 flex-1 items-center gap-3"
+                      onClick={() => clearPracticePathContext()}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-sm font-medium group-hover:text-primary">
+                            {p.title}
                           </span>
-                        ))}
+                          {solvedIds.has(p.id) && (
+                            <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
+                          )}
+                        </div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                          <Badge variant="secondary" className="h-5 px-1.5 text-[10px] capitalize">
+                            {p.language}
+                          </Badge>
+                          <Badge
+                            variant={difficultyBadgeVariant(p.difficulty)}
+                            className="h-5 px-1.5 text-[10px] capitalize"
+                          >
+                            {p.difficulty}
+                          </Badge>
+                          {p.topic?.slice(0, 2).map((t) => (
+                            <span key={t} className="text-[10px] text-muted-foreground capitalize">
+                              {formatTagLabel(t)}
+                            </span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground/40 group-hover:text-primary" />
-                  </Link>
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground/40 group-hover:text-primary" />
+                    </Link>
+                    {!selectMode && token && (
+                      <AddToPathControl
+                        problemId={p.id}
+                        token={token}
+                        customPaths={customPaths}
+                        membership={membership}
+                        onPathsChange={setCustomPaths}
+                        onMembershipChange={setMembership}
+                        onToast={showToast}
+                      />
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -605,6 +760,18 @@ function ProblemsPageContent() {
               </div>
             )}
           </>
+        )}
+
+        {selectMode && selectedIds.size > 0 && token && (
+          <BulkAddBar
+            selectedIds={Array.from(selectedIds)}
+            token={token}
+            customPaths={customPaths}
+            onPathsChange={setCustomPaths}
+            onRefreshMembership={refreshCustomPaths}
+            onDone={exitSelectMode}
+            onToast={showToast}
+          />
         )}
       </PageContent>
     </AppShell>

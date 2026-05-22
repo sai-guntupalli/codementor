@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from core.deps import get_current_user
+from core.problem_titles import strip_curriculum_prefix
 from db.session import get_db
 from models.learning import Problem, ProblemBookmark
 from models.users import User
@@ -53,7 +54,7 @@ def list_bookmarks(
         BookmarkedProblemOut(
             bookmark_id=bm.id,
             problem_id=p.id,
-            title=p.title,
+            title=strip_curriculum_prefix(p.title),
             difficulty=p.difficulty,
             language=p.language,
             topic=p.topic or [],

@@ -7,6 +7,8 @@ type NextProblem = { id: string; title: string };
 
 type NextProblemButtonProps = {
   next: NextProblem | null | undefined;
+  /** When set, next links preserve learning-path context */
+  pathId?: string | null;
   variant?: "default" | "outline";
   size?: "sm" | "default";
   /** Button text when not using showTitle (e.g. "Skip") */
@@ -20,6 +22,7 @@ type NextProblemButtonProps = {
 
 export function NextProblemButton({
   next,
+  pathId,
   variant = "default",
   size = "sm",
   label,
@@ -32,10 +35,13 @@ export function NextProblemButton({
 
   const prefix = label ?? "Next";
   const compactLabel = label ?? "Next problem";
+  const href = pathId
+    ? `/practice/${next.id}?path=${encodeURIComponent(pathId)}`
+    : `/practice/${next.id}`;
 
   return (
     <Link
-      href={`/practice/${next.id}`}
+      href={href}
       title={title}
       className={cn(
         buttonVariants({ variant, size }),

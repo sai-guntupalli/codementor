@@ -5,6 +5,8 @@ export type RunResult = {
   stderr: string;
   exit_code: number | null;
   timed_out: boolean;
+  /** True when the server wrapped your function and called it with the example input. */
+  harnessed?: boolean;
 };
 
 export type TestCaseResult = {
@@ -58,9 +60,15 @@ export function normalizeStdin(raw: string): string {
   return s;
 }
 
+/** True when example input is literal stdin for a script (not a REPL snippet or random fixture). */
 export function isRunnableExample(input: string): boolean {
   const t = input.trim();
-  return t !== "" && t !== "(none)" && !/see description/i.test(t);
+  if (t === "" || t === "(none)" || /see description/i.test(t)) return false;
+  // Function calls, assignments, and multiline programs are not stdin test cases.
+  if (/\w\s*\(/.test(t)) return false;
+  if (/^[a-z_][\w]*\s*=/i.test(t)) return false;
+  if (/^(def|class|import|from)\b/m.test(t)) return false;
+  return true;
 }
 
 export async function runTestCases(

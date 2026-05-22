@@ -34,6 +34,43 @@ export function PageContent({
   );
 }
 
+/** Compact title bar — matches Problems library header. */
+export function PageHeader({
+  icon,
+  title,
+  subtitle,
+  action,
+  children,
+}: {
+  icon?: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  children?: React.ReactNode;
+}) {
+  return (
+    <section className="panel-card bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 px-3 py-2.5 md:px-4">
+        <div className="flex min-w-0 items-center gap-2.5">
+          {icon && (
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+              {icon}
+            </span>
+          )}
+          <div className="min-w-0">
+            <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
+            {subtitle && (
+              <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+            )}
+          </div>
+        </div>
+        {action}
+      </div>
+      {children ? <div className="p-3 md:p-4">{children}</div> : null}
+    </section>
+  );
+}
+
 export function PageHero({
   eyebrow,
   title,
@@ -80,7 +117,7 @@ export function PageSection({
 }: {
   title: string;
   description?: React.ReactNode;
-  action?: { href: string; label: string };
+  action?: React.ReactNode | { href: string; label: string };
   icon?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
@@ -97,14 +134,17 @@ export function PageSection({
             )}
           </div>
         </div>
-        {action && (
-          <Link
-            href={action.href}
-            className="text-xs font-medium text-primary transition-colors hover:underline"
-          >
-            {action.label}
-          </Link>
-        )}
+        {action &&
+          (typeof action === "object" && action !== null && "href" in action ? (
+            <Link
+              href={action.href}
+              className="text-xs font-medium text-primary transition-colors hover:underline"
+            >
+              {action.label}
+            </Link>
+          ) : (
+            action
+          ))}
       </div>
       {children}
     </section>

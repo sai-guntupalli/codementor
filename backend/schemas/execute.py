@@ -12,3 +12,4 @@ class ExecuteResult(BaseModel):
     stderr: str
     exit_code: int | None
     timed_out: bool
+    harnessed: bool = False
