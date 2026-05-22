@@ -18,6 +18,117 @@ def test_list_problems(auth_client: TestClient):
     assert body["page"] == 1
 
 
+def test_problems_meta(auth_client: TestClient, db):
+    from models.learning import Problem
+
+    db.add(
+        Problem(
+            title="Meta Easy",
+            description="x" * 20,
+            difficulty="easy",
+            language="python",
+            source="curated",
+            is_published=True,
+        )
+    )
+    db.commit()
+    resp = auth_client.get("/problems/facets")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] >= 1
+    assert "by_difficulty" in body
+    assert "unsolved_count" in body
+
+
+def test_search_problems_by_topic_partial(auth_client: TestClient, db):
+    from models.learning import Problem
+
+    db.add(
+        Problem(
+            title="Unique Partial Tag Problem",
+            description="x" * 20,
+            difficulty="easy",
+            language="python",
+            topic=["xyz-only-tag-abc"],
+            source="curated",
+            is_published=True,
+        )
+    )
+    db.commit()
+    by_topic = auth_client.get("/problems?topic=xyz-only")
+    assert by_topic.status_code == 200
+    body = by_topic.json()
+    assert body["total"] >= 1
+    assert any(i["title"] == "Unique Partial Tag Problem" for i in body["items"])
+
+    by_q = auth_client.get("/problems?q=Unique+Partial+Tag")
+    assert by_q.status_code == 200
+    assert by_q.json()["total"] >= 1
+
+
+def test_topic_filter_partial_match(auth_client: TestClient, db):
+    from models.learning import Problem
+
+    db.add(
+        Problem(
+            title="Loop Basics",
+            description="x" * 20,
+            difficulty="beginner",
+            language="python",
+            topic=["loops"],
+            source="curated",
+            is_published=True,
+        )
+    )
+    db.commit()
+    resp = auth_client.get("/problems?topic=loop")
+    assert resp.status_code == 200
+    assert resp.json()["total"] >= 1
+
+
+def test_problems_tags_endpoint(auth_client: TestClient, db):
+    from models.learning import Problem
+
+    db.add(
+        Problem(
+            title="Tagged",
+            description="x" * 20,
+            difficulty="easy",
+            language="python",
+            topic=["strings"],
+            source="curated",
+            is_published=True,
+        )
+    )
+    db.commit()
+    resp = auth_client.get("/problems/topic-tags?q=str")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "tags" in body
+    assert "suggested" in body
+    assert any("strings" in t["tag"] for t in body["tags"])
+
+
+def test_search_problems_by_title(auth_client: TestClient, db):
+    from models.learning import Problem
+
+    db.add(
+        Problem(
+            title="Unique Zebra Search",
+            description="x" * 20,
+            difficulty="easy",
+            language="python",
+            source="curated",
+            is_published=True,
+        )
+    )
+    db.commit()
+    resp = auth_client.get("/problems?q=Zebra")
+    assert resp.status_code == 200
+    titles = [i["title"] for i in resp.json()["items"]]
+    assert any("Zebra" in t for t in titles)
+
+
 def test_filter_by_language(auth_client: TestClient):
     """GET /problems?language=python returns only python problems (API-01)."""
     response = auth_client.get("/problems?language=python")
@@ -25,6 +136,12 @@ def test_filter_by_language(auth_client: TestClient):
     body = response.json()
     for item in body["items"]:
         assert item["language"] == "python"
+
+
+def test_reserved_paths_not_parsed_as_uuid(auth_client: TestClient):
+    for path in ("/problems/meta", "/problems/tags", "/problems/facets", "/problems/topic-tags"):
+        resp = auth_client.get(path)
+        assert resp.status_code == 200, path
 
 
 def test_get_problem_not_found(auth_client: TestClient):

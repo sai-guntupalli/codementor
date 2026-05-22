@@ -59,6 +59,30 @@ def test_update_me_profile_level(auth_client: TestClient):
     assert response.json()["profile_level"] == "engineer"
 
 
+def test_learning_path_includes_library_total(auth_client: TestClient, db):
+    from models.learning import Problem
+
+    for i in range(3):
+        db.add(
+            Problem(
+                title=f"Path {i}",
+                description="x" * 20,
+                difficulty="beginner",
+                language="python",
+                source="curated",
+                is_published=True,
+                sort_order=i,
+            )
+        )
+    db.commit()
+    resp = auth_client.get("/users/me/learning-path")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["library_total"] >= 3
+    assert "difficulties" in body
+    assert len(body["problems"]) >= 1
+
+
 def test_users_me_requires_auth(client: TestClient):
     """GET /users/me without Authorization header returns 401 (AUTH-04)."""
     response = client.get("/users/me")

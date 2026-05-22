@@ -1,7 +1,24 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class ProblemListItem(BaseModel):
+    """Lightweight row for problem browse lists."""
+
+    id: uuid.UUID
+    title: str
+    slug: str | None
+    language: str
+    difficulty: str
+    topic: list[str]
+    source: str
+    external_id: int | None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class ProblemPublicOut(BaseModel):
@@ -14,7 +31,7 @@ class ProblemPublicOut(BaseModel):
     language: str
     difficulty: str
     topic: list[str]
-    examples: list[dict]
+    examples: list[dict] | dict
     constraints: str | None
     external_id: int | None
     source_url: str | None
@@ -32,11 +49,40 @@ class ProblemOut(ProblemPublicOut):
     hints: list[str] | None = None
 
 
+class TagCount(BaseModel):
+    tag: str
+    count: int
+
+
+class ProblemFacets(BaseModel):
+    total: int
+    by_difficulty: dict[str, int]
+    by_language: dict[str, int]
+    solved_count: int
+    unsolved_count: int
+    popular_tags: list[TagCount] = []
+
+
+class ProblemTagsOut(BaseModel):
+    tags: list[TagCount]
+    suggested: list[str]
+
+
 class ProblemListOut(BaseModel):
-    items: list[ProblemPublicOut]
+    items: list[ProblemListItem]
     total: int
     page: int
     page_size: int
+
+
+class ProblemCreate(BaseModel):
+    title: str = Field(..., max_length=200)
+    description: str = Field(..., max_length=10_000)
+    language: Literal["python", "sql"]
+    difficulty: Literal["beginner", "easy", "medium", "hard"]
+    topic: list[str] = []
+    examples: list[dict] = []
+    constraints: str | None = Field(None, max_length=2_000)
 
 
 class ProblemSolutionOut(BaseModel):

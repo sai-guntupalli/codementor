@@ -24,6 +24,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getValidatedAccessToken } from "@/lib/auth-session";
 import {
   apiFetch,
+  type ProblemFacets,
   type UserOut,
   type SubmissionHistoryItem,
   type LearningPathOut,
@@ -40,6 +41,7 @@ export default function DashboardPage() {
   const [learningPath, setLearningPath] = useState<LearningPathProblem[]>([]);
   const [learningPathMessage, setLearningPathMessage] = useState("");
   const [solvedIds, setSolvedIds] = useState<Set<string>>(new Set());
+  const [libraryMeta, setLibraryMeta] = useState<ProblemFacets | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,13 +53,14 @@ export default function DashboardPage() {
         return;
       }
       try {
-        const [user, submissions, path, solved] = await Promise.all([
+        const [user, submissions, path, solved, meta] = await Promise.all([
           apiFetch<UserOut>("/users/me", { token }),
           apiFetch<SubmissionHistoryItem[]>("/submissions/me?limit=5", { token }),
           apiFetch<LearningPathOut>("/users/me/learning-path", { token }),
           apiFetch<SolvedProblemIdsOut>("/submissions/me/problem-ids", { token }).catch(
             () => ({ solved_ids: [] as string[] })
           ),
+          apiFetch<ProblemFacets>("/problems/facets", { token }).catch(() => null),
         ]);
         if (!user.is_profile_complete) {
           router.replace("/profile/setup");
@@ -68,6 +71,7 @@ export default function DashboardPage() {
         setLearningPath(path.problems.slice(0, 5));
         setLearningPathMessage(path.message);
         setSolvedIds(new Set(solved.solved_ids));
+        setLibraryMeta(meta);
       } catch {
         router.replace("/login");
       } finally {
@@ -137,9 +141,11 @@ export default function DashboardPage() {
                     <ArrowRight className="size-3.5" />
                   </Button>
                 </Link>
-                <Link href="/problems">
+                <Link href="/problems?sort=recommended">
                   <Button size="sm" variant="outline">
-                    Browse problems
+                    {libraryMeta
+                      ? `Browse ${libraryMeta.total.toLocaleString()} problems`
+                      : "Browse problems"}
                   </Button>
                 </Link>
                 <Link href="/learn">

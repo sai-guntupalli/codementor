@@ -34,7 +34,49 @@ export type LearningPathOut = {
   problems: LearningPathProblem[];
   message: string;
   next_problems: LearningPathProblem[];
+  library_total: number;
+  difficulties: string[];
 };
+
+export type ProblemListItem = {
+  id: string;
+  title: string;
+  slug: string | null;
+  language: string;
+  difficulty: string;
+  topic: string[];
+  source: string;
+  external_id: number | null;
+  created_at: string;
+};
+
+export type ProblemList = {
+  items: ProblemListItem[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export type TagCount = {
+  tag: string;
+  count: number;
+};
+
+export type ProblemFacets = {
+  total: number;
+  by_difficulty: Record<string, number>;
+  by_language: Record<string, number>;
+  solved_count: number;
+  unsolved_count: number;
+  popular_tags: TagCount[];
+};
+
+export type ProblemTagsOut = {
+  tags: TagCount[];
+  suggested: string[];
+};
+
+export type ProblemSort = "default" | "title" | "newest" | "recommended";
 
 function formatApiError(detail: unknown): string {
   if (typeof detail === "string") return detail;

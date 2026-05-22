@@ -46,3 +46,5 @@ class LearningPathOut(BaseModel):
     problems: list[LearningPathProblem]
     message: str
     next_problems: list[LearningPathProblem] = []
+    library_total: int = 0
+    difficulties: list[str] = []

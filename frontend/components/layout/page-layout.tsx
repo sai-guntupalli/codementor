@@ -23,7 +23,7 @@ export function PageContent({
     <div className="workspace-canvas min-h-full">
       <div
         className={cn(
-          "mx-auto space-y-4 p-4 md:space-y-5 md:p-6",
+          "mx-auto space-y-4 p-3 md:space-y-4 md:p-4",
           MAX_WIDTH[width],
           className
         )}
@@ -43,7 +43,7 @@ export function PageHero({
 }: {
   eyebrow?: string;
   title: string;
-  description?: string;
+  description?: React.ReactNode;
   icon?: React.ReactNode;
   children?: React.ReactNode;
 }) {
@@ -79,7 +79,7 @@ export function PageSection({
   className,
 }: {
   title: string;
-  description?: string;
+  description?: React.ReactNode;
   action?: { href: string; label: string };
   icon?: React.ReactNode;
   children: React.ReactNode;

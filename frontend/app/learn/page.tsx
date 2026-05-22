@@ -89,6 +89,7 @@ export default function LearnPage() {
   }, [learningPath, solvedIds]);
 
   const streak = profile?.streak_days ?? 0;
+  const libraryTotal = learningPath?.library_total ?? 0;
 
   if (loading) {
     return (
@@ -106,10 +107,35 @@ export default function LearnPage() {
           eyebrow="Personalized for you"
           title="Your Learning Path"
           description={
-            learningPath?.message ||
-            "A beginner-friendly sequence — work through each step at your own pace."
+            <>
+              {learningPath?.message ||
+                "A beginner-friendly sequence — work through each step at your own pace."}
+              {libraryTotal > 0 && (
+                <span className="mt-2 block text-xs text-muted-foreground">
+                  Your path highlights {totalCount} of {libraryTotal.toLocaleString()} problems
+                  matched to your level
+                  {learningPath?.difficulties?.length
+                    ? ` (${learningPath.difficulties.join(", ")})`
+                    : ""}
+                  .
+                </span>
+              )}
+            </>
           }
         >
+          {libraryTotal > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href="/problems?sort=recommended&unsolved_only=true"
+                className="inline-block"
+              >
+                <Button size="sm" variant="outline" className="gap-1.5">
+                  Browse full library
+                  <ChevronRight className="size-3.5" />
+                </Button>
+              </Link>
+            </div>
+          )}
           {totalCount > 0 && (
             <div className="mt-5 space-y-2">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -147,9 +173,9 @@ export default function LearnPage() {
                         browse the full library.
                       </p>
                       <div className="flex flex-wrap gap-2">
-                        <Link href="/problems">
+                        <Link href="/problems?sort=recommended&unsolved_only=true">
                           <Button size="sm" variant="outline" className="gap-1.5">
-                            Browse all problems
+                            Browse unsolved problems
                           </Button>
                         </Link>
                         <Link href="/progress">
