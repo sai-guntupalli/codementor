@@ -1,12 +1,19 @@
+import enum
 import uuid
 
 import sqlalchemy as sa
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
 from models.base import Base
+
+
+class LearningPathType(enum.Enum):
+    curated = "curated"
+    personalized = "personalized"
+    custom = "custom"
 
 
 class Problem(Base):
@@ -98,4 +105,51 @@ class ProblemBookmark(Base):
 
     __table_args__ = (
         sa.UniqueConstraint("user_id", "problem_id", name="uq_bookmark_user_problem"),
+    )
+
+
+class LearningPath(Base):
+    __tablename__ = "learning_paths"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(String, nullable=True)
+    type: Mapped[LearningPathType] = mapped_column(
+        Enum(LearningPathType, name="learningpathtype"), nullable=False
+    )
+    created_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    sort_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        CheckConstraint(
+            "type = 'curated' OR created_by IS NOT NULL",
+            name="ck_learning_paths_created_by_required",
+        ),
+    )
+
+
+class LearningPathProblem(Base):
+    __tablename__ = "learning_path_problems"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    learning_path_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("learning_paths.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    problem_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("problems.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    added_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        sa.UniqueConstraint("learning_path_id", "problem_id", name="uq_learning_path_problem"),
     )
