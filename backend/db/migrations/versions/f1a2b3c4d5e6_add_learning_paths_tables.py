@@ -34,7 +34,7 @@ def upgrade() -> None:
             sa.Enum('curated', 'personalized', 'custom', name='learningpathtype', create_type=False),
             nullable=False,
         ),
-        sa.Column('created_by', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id'), nullable=True),
+        sa.Column('created_by', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id', ondelete='SET NULL'), nullable=True),
         sa.Column('is_public', sa.Boolean(), nullable=False, server_default=sa.text('false')),
         sa.Column('sort_order', sa.Integer(), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()')),

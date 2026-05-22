@@ -115,10 +115,10 @@ class LearningPath(Base):
     title: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str | None] = mapped_column(String, nullable=True)
     type: Mapped[LearningPathType] = mapped_column(
-        Enum(LearningPathType, name="learningpathtype"), nullable=False
+        Enum(LearningPathType, name="learningpathtype", create_type=False), nullable=False
     )
     created_by: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     sort_order: Mapped[int | None] = mapped_column(Integer, nullable=True)
