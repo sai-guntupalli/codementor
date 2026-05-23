@@ -1,11 +1,11 @@
 import uuid
+from collections import defaultdict
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from core.deps import get_current_user
-from core.learning_path import ensure_personalized_path
 from db.session import get_db
 from models.learning import LearningPath, LearningPathProblem, LearningPathType, Problem, Submission
 from models.users import User
@@ -37,6 +37,7 @@ def _make_path_out(
     solved_problem_ids: set[uuid.UUID],
     db: Session,
 ) -> LearningPathOut:
+    """Build LearningPathOut for a single path (used by create/update endpoints)."""
     problem_ids = (
         db.query(LearningPathProblem.problem_id)
         .filter(LearningPathProblem.learning_path_id == path.id)
@@ -56,6 +57,33 @@ def _make_path_out(
         created_at=path.created_at,
         progress=LearningPathProgress(solved_count=solved, total_count=total, progress_pct=pct),
     )
+
+
+def _batch_path_progress(
+    db: Session,
+    path_ids: list[uuid.UUID],
+    solved_ids: set[uuid.UUID],
+) -> dict[uuid.UUID, LearningPathProgress]:
+    """Single query to compute progress for multiple paths (replaces N+1 in list endpoint)."""
+    if not path_ids:
+        return {}
+    rows = (
+        db.query(LearningPathProblem.learning_path_id, LearningPathProblem.problem_id)
+        .filter(LearningPathProblem.learning_path_id.in_(path_ids))
+        .all()
+    )
+    path_problems: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
+    for path_id, problem_id in rows:
+        path_problems[path_id].append(problem_id)
+
+    result: dict[uuid.UUID, LearningPathProgress] = {}
+    for pid in path_ids:
+        problems = path_problems[pid]
+        total = len(problems)
+        solved = sum(1 for p in problems if p in solved_ids)
+        pct = round(solved / total * 100) if total > 0 else 0
+        result[pid] = LearningPathProgress(solved_count=solved, total_count=total, progress_pct=pct)
+    return result
 
 
 def _get_path_or_404(db: Session, path_id: uuid.UUID) -> LearningPath:
@@ -90,8 +118,6 @@ def list_learning_paths(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> list[LearningPathOut]:
     """List all paths visible to the current user with per-path progress."""
-    ensure_personalized_path(db, current_user)
-
     curated = (
         db.query(LearningPath)
         .filter(LearningPath.type == LearningPathType.curated)
@@ -107,8 +133,26 @@ def list_learning_paths(
         .all()
     )
 
+    all_paths = curated + user_paths
     solved_ids = _get_solved_ids(db, current_user.id)
-    return [_make_path_out(p, solved_ids, db) for p in curated + user_paths]
+    progress_map = _batch_path_progress(db, [p.id for p in all_paths], solved_ids)
+
+    return [
+        LearningPathOut(
+            id=p.id,
+            title=p.title,
+            description=p.description,
+            type=p.type.value,
+            created_by=p.created_by,
+            is_public=p.is_public,
+            sort_order=p.sort_order,
+            created_at=p.created_at,
+            progress=progress_map.get(
+                p.id, LearningPathProgress(solved_count=0, total_count=0, progress_pct=0)
+            ),
+        )
+        for p in all_paths
+    ]
 
 
 @router.post("", response_model=LearningPathOut, status_code=status.HTTP_201_CREATED)

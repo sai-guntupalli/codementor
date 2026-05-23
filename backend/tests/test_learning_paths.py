@@ -549,13 +549,14 @@ def test_remove_problem_from_other_user_path_returns_403(
 # ---------------------------------------------------------------------------
 
 
-def test_list_learning_paths_creates_personalized_lazily(
+def test_patch_profile_creates_personalized_path(
     auth_client: TestClient, db: Session, persisted_user
 ):
+    """PATCH /users/me with onboarding data creates the personalized path; GET sees it."""
     for i in range(5):
         db.add(
             Problem(
-                title=f"Lazy {i}",
+                title=f"Init {i}",
                 description="x" * 20,
                 difficulty="beginner",
                 language="python",
@@ -566,11 +567,55 @@ def test_list_learning_paths_creates_personalized_lazily(
         )
     db.commit()
 
+    auth_client.patch(
+        "/users/me",
+        json={"coding_experience": "none", "learning_goal": "fun", "interested_topics": []},
+    )
+
     resp = auth_client.get("/learning-paths")
     assert resp.status_code == 200
     personalized = [p for p in resp.json() if p["type"] == "personalized"]
     assert len(personalized) == 1
     assert personalized[0]["progress"]["total_count"] >= 1
+
+
+def test_get_learning_paths_does_not_create_path_when_none_exists(
+    auth_client: TestClient, db: Session
+):
+    """GET /learning-paths must not write to DB — personalized path only created via PATCH."""
+    resp = auth_client.get("/learning-paths")
+    assert resp.status_code == 200
+    personalized = [p for p in resp.json() if p["type"] == "personalized"]
+    assert len(personalized) == 0
+
+
+def test_list_learning_paths_progress_multiple_paths(
+    auth_client: TestClient, db: Session, persisted_user
+):
+    """Batch query must compute correct progress for multiple paths simultaneously."""
+    path_a = _make_custom_path(db, persisted_user.id, "Alpha")
+    path_b = _make_custom_path(db, persisted_user.id, "Beta")
+    p1 = _make_problem(db)
+    p2 = _make_problem(db)
+    p3 = _make_problem(db)
+    _add_problem_to_path(db, path_a.id, p1.id)
+    _add_problem_to_path(db, path_a.id, p2.id)
+    _add_problem_to_path(db, path_b.id, p3.id)
+    _make_solved_submission(db, persisted_user.id, p1.id)
+
+    resp = auth_client.get("/learning-paths")
+    assert resp.status_code == 200
+    paths = {p["id"]: p for p in resp.json()}
+
+    a = paths[str(path_a.id)]
+    assert a["progress"]["total_count"] == 2
+    assert a["progress"]["solved_count"] == 1
+    assert a["progress"]["progress_pct"] == 50
+
+    b = paths[str(path_b.id)]
+    assert b["progress"]["total_count"] == 1
+    assert b["progress"]["solved_count"] == 0
+    assert b["progress"]["progress_pct"] == 0
 
 
 def test_learning_path_endpoint_uses_persisted_path(

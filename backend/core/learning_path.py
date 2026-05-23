@@ -33,6 +33,7 @@ PATH_SIZE = 15
 NEXT_SIZE = 12
 CANDIDATE_POOL = 500
 
+# Mirrored in frontend/lib/learning-path-utils.ts — keep both in sync.
 EXPERIENCE_MESSAGES: dict[str, str] = {
     "none": "Here's your beginner-friendly path — no prior experience needed.",
     "some": "Problems selected to build on what you already know.",

@@ -50,6 +50,8 @@ export function otherLearningPaths(
     .slice(0, limit);
 }
 
+// Mirrored in backend/core/learning_path.py — keep both in sync.
+// TODO: serve from API to eliminate duplication.
 export const EXPERIENCE_MESSAGES: Record<string, string> = {
   none: "Beginner-friendly problems — no prior experience needed.",
   some: "Build on what you already know.",

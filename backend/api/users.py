@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from core.deps import get_current_user
 from core.learning_path import (
     EXPERIENCE_MESSAGES,
+    ensure_personalized_path,
     personalized_path_response,
     regenerate_personalized_path,
 )
@@ -89,5 +90,7 @@ def update_me(
 
     if should_regen and user.coding_experience is not None:
         regenerate_personalized_path(db, user)
+    elif user.coding_experience is not None:
+        ensure_personalized_path(db, user)
 
     return user

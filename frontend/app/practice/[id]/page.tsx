@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -33,12 +33,13 @@ import { createClient } from "@/lib/supabase/client";
 import { getValidatedAccessToken } from "@/lib/auth-session";
 import {
   apiFetch,
-  type LearningPathOut,
+  type LearningPathListItem,
   type LearningPathProblem,
   type LearningPathProblemItem,
   type SolvedProblemIdsOut,
   type SubmissionOut,
 } from "@/lib/api";
+import { pickActiveLearningPath } from "@/lib/learning-path-utils";
 import {
   streamChat,
   streamCodeReview,
@@ -142,6 +143,8 @@ export default function PracticePage() {
   const [learningPath, setLearningPath] = useState<LearningPathProblem[]>([]);
   const [previousSubmission, setPreviousSubmission] = useState<SubmissionOut | null>(null);
 
+  const tokenRef = useRef<string | null>(null);
+
   const getToken = useCallback(async () => {
     const supabase = createClient();
     const token = await getValidatedAccessToken(supabase);
@@ -156,26 +159,36 @@ export default function PracticePage() {
     async function load() {
       const token = await getToken();
       if (!token || !id) return;
+      tokenRef.current = token;
       try {
         const pathId = await resolvePracticePathId(token, id, pathFromUrl);
         setResolvedPathId(pathId);
 
-        const pathFetch = pathId
-          ? apiFetch<LearningPathProblemItem[]>(
-              `/learning-paths/${pathId}/problems`,
-              { token }
-            )
-              .then((items) => ({ problems: items as LearningPathProblem[] }))
+        const pathFetch: Promise<{ problems: LearningPathProblem[]; resolvedId?: string }> = pathId
+          ? apiFetch<LearningPathProblemItem[]>(`/learning-paths/${pathId}/problems`, { token })
+              .then((items) => ({ problems: items as LearningPathProblem[], resolvedId: pathId }))
               .catch(() => ({ problems: [] as LearningPathProblem[] }))
-          : apiFetch<LearningPathOut>("/users/me/learning-path", { token }).catch(() => ({
-              problems: [] as LearningPathProblem[],
-              next_problems: [] as LearningPathProblem[],
-              message: "",
-            }));
+          : apiFetch<LearningPathListItem[]>("/learning-paths", { token })
+              .then(async (paths) => {
+                const active = pickActiveLearningPath(paths);
+                if (!active) return { problems: [] as LearningPathProblem[] };
+                const items = await apiFetch<LearningPathProblemItem[]>(
+                  `/learning-paths/${active.id}/problems`,
+                  { token }
+                ).catch(() => [] as LearningPathProblemItem[]);
+                return { problems: items as LearningPathProblem[], resolvedId: active.id };
+              })
+              .catch(() => ({ problems: [] as LearningPathProblem[] }));
+
+        const listFetch = pathId
+          ? Promise.resolve({ items: [] as ProblemListItem[] })
+          : apiFetch<{ items: ProblemListItem[] }>("/problems?page_size=20", { token }).catch(
+              () => ({ items: [] as ProblemListItem[] })
+            );
 
         const [p, list, solved, path] = await Promise.all([
           apiFetch<Problem>(`/problems/${id}`, { token }),
-          apiFetch<{ items: ProblemListItem[] }>("/problems?page_size=20", { token }),
+          listFetch,
           apiFetch<SolvedProblemIdsOut>("/submissions/me/problem-ids", { token }).catch(
             () => ({ solved_ids: [] as string[] })
           ),
@@ -185,6 +198,9 @@ export default function PracticePage() {
         setProblemList(list.items);
         setSolvedIds(new Set(solved.solved_ids));
         setLearningPath(path.problems);
+        if (path.resolvedId && !pathId) {
+          setResolvedPathId(path.resolvedId);
+        }
         setDescMinimized(false);
         setMobileDescOpen(false);
 
@@ -284,7 +300,7 @@ export default function PracticePage() {
     setRunOnceResult(null);
     if (!runStdin.trim()) setRunStdin(defaultStdinFromExamples());
     try {
-      const token = await getToken();
+      const token = tokenRef.current ?? await getToken();
       if (!token) return;
       const results = await runTestCases(problem.language, code, token, problem.examples);
       setTestResults(results);
@@ -300,7 +316,7 @@ export default function PracticePage() {
     setTestResults([]);
     setRunOnceResult(null);
     try {
-      const token = await getToken();
+      const token = tokenRef.current ?? await getToken();
       if (!token) return;
       const result = await runCode(
         problem.language,
@@ -393,7 +409,7 @@ export default function PracticePage() {
     openAiPanel();
     setActiveTab("review");
 
-    const token = await getToken();
+    const token = tokenRef.current ?? await getToken();
     if (!token) {
       setStreaming(false);
       return;
@@ -443,7 +459,7 @@ export default function PracticePage() {
 
   async function handleHint(n: number) {
     if (!problem || hintCount >= n) return;
-    const token = await getToken();
+    const token = tokenRef.current ?? await getToken();
     if (!token) return;
 
     setStreaming(true);
@@ -474,7 +490,7 @@ export default function PracticePage() {
 
   async function handleSolution() {
     if (!problem) return;
-    const token = await getToken();
+    const token = tokenRef.current ?? await getToken();
     if (!token) return;
 
     setStreaming(true);
@@ -496,7 +512,7 @@ export default function PracticePage() {
 
   async function handleCodeReview() {
     if (!problem) return;
-    const token = await getToken();
+    const token = tokenRef.current ?? await getToken();
     if (!token) return;
 
     setStreaming(true);
@@ -518,7 +534,7 @@ export default function PracticePage() {
 
   async function handleChat() {
     if (!problem || !chatInput.trim()) return;
-    const token = await getToken();
+    const token = tokenRef.current ?? await getToken();
     if (!token) return;
 
     const userMsg = chatInput.trim();
