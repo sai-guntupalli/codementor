@@ -1,43 +1,54 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronRight } from "lucide-react";
+import Link from "next/link";
+import { BookOpen, MoreVertical, Plus, Route, Target, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
-import { Badge } from "@/components/ui/badge";
+import {
+  PageContent,
+  PageHeader,
+  PageSection,
+  PageSkeleton,
+  PageStat,
+  PageStatGrid,
+} from "@/components/layout/page-layout";
+import { NewPathForm } from "@/components/learning-path/new-path-form";
+import { PathCard } from "@/components/learning-path/path-card";
+import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { getValidatedAccessToken } from "@/lib/auth-session";
-import {
-  apiFetch,
-  type LearningPathOut,
-  type LearningPathProblem,
-  type SolvedProblemIdsOut,
-} from "@/lib/api";
-import { difficultyBadgeVariant } from "@/lib/tags";
+import { apiFetch, type LearningPathListItem } from "@/lib/api";
 
 export default function LearnPage() {
   const router = useRouter();
-  const [learningPath, setLearningPath] = useState<LearningPathOut | null>(null);
-  const [solvedIds, setSolvedIds] = useState<Set<string>>(new Set());
+  const [paths, setPaths] = useState<LearningPathListItem[]>([]);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showNewPath, setShowNewPath] = useState(false);
+  const [menuPathId, setMenuPathId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
+
+  const loadPaths = useCallback(async (authToken: string) => {
+    const data = await apiFetch<LearningPathListItem[]>("/learning-paths", {
+      token: authToken,
+    });
+    setPaths(data);
+  }, []);
 
   useEffect(() => {
     async function load() {
       const supabase = createClient();
-      const token = await getValidatedAccessToken(supabase);
-      if (!token) {
+      const t = await getValidatedAccessToken(supabase);
+      if (!t) {
         router.replace("/login");
         return;
       }
+      setToken(t);
       try {
-        const [path, solved] = await Promise.all([
-          apiFetch<LearningPathOut>("/users/me/learning-path", { token }),
-          apiFetch<SolvedProblemIdsOut>("/submissions/me/problem-ids", { token }),
-        ]);
-        setLearningPath(path);
-        setSolvedIds(new Set(solved.solved_ids));
+        await loadPaths(t);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load");
       } finally {
@@ -45,100 +56,274 @@ export default function LearnPage() {
       }
     }
     load();
-  }, [router]);
+  }, [router, loadPaths]);
+
+  const curatedSection = useMemo(() => {
+    const curated = paths.filter((p) => p.type === "curated");
+    const personalized = paths.filter((p) => p.type === "personalized");
+    return [...curated, ...personalized];
+  }, [paths]);
+
+  const customPaths = useMemo(
+    () => paths.filter((p) => p.type === "custom"),
+    [paths]
+  );
+
+  const stats = useMemo(() => {
+    const totalProblems = paths.reduce((s, p) => s + p.progress.total_count, 0);
+    const solved = paths.reduce((s, p) => s + p.progress.solved_count, 0);
+    const pct =
+      totalProblems > 0 ? Math.round((solved / totalProblems) * 100) : 0;
+    return {
+      pathCount: paths.length,
+      curatedCount: curatedSection.length,
+      customCount: customPaths.length,
+      totalProblems,
+      solved,
+      pct,
+    };
+  }, [paths, curatedSection.length, customPaths.length]);
+
+  const summaryLine = [
+    `${stats.pathCount} path${stats.pathCount === 1 ? "" : "s"}`,
+    stats.totalProblems > 0
+      ? `${stats.solved} of ${stats.totalProblems} solved`
+      : null,
+    stats.customCount > 0 ? `${stats.customCount} custom` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  async function deletePath(pathId: string) {
+    if (!token) return;
+    if (!confirm("Delete this path? Problems in it will be removed from the path.")) return;
+    try {
+      await apiFetch(`/learning-paths/${pathId}`, { method: "DELETE", token });
+      setPaths((prev) => prev.filter((p) => p.id !== pathId));
+      setMenuPathId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
+    }
+  }
+
+  async function saveRename(pathId: string) {
+    if (!token || !renameTitle.trim()) return;
+    try {
+      const updated = await apiFetch<LearningPathListItem>(
+        `/learning-paths/${pathId}`,
+        {
+          method: "PATCH",
+          token,
+          body: JSON.stringify({ title: renameTitle.trim() }),
+        }
+      );
+      setPaths((prev) => prev.map((p) => (p.id === pathId ? updated : p)));
+      setRenamingId(null);
+      setMenuPathId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Rename failed");
+    }
+  }
 
   if (loading) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-2xl px-6 py-10">
-          <div className="h-7 w-48 animate-pulse rounded-xl bg-muted" />
-          <div className="mt-2 h-4 w-72 animate-pulse rounded-lg bg-muted/60" />
-          <div className="mt-8 space-y-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-16 animate-pulse rounded-xl border border-border/50 bg-muted/40"
-              />
-            ))}
-          </div>
-        </div>
+        <PageSkeleton rows={6} />
       </AppShell>
     );
   }
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-2xl px-6 py-10">
-        <h1 className="text-2xl font-bold tracking-tight">Your Learning Path</h1>
-        {learningPath?.message && (
-          <p className="mt-1 text-sm text-muted-foreground">{learningPath.message}</p>
+      <PageContent width="xl" className="space-y-3">
+        <PageHeader
+          icon={<BookOpen className="size-4" />}
+          title="Learning Paths"
+          subtitle={
+            summaryLine ||
+            "Curated tracks, your personalized sequence, and custom collections"
+          }
+          action={
+            token ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1 px-2 text-xs"
+                onClick={() => setShowNewPath((v) => !v)}
+              >
+                <Plus className="size-3.5" />
+                New path
+              </Button>
+            ) : undefined
+          }
+        />
+
+        {error && (
+          <p className="rounded-xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </p>
         )}
 
-        {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+        <PageStatGrid>
+          <PageStat
+            icon={<Route className="size-4 text-primary" />}
+            label="Paths"
+            value={String(stats.pathCount)}
+            hint={`${stats.curatedCount} curated & personalized`}
+          />
+          <PageStat
+            icon={<Target className="size-4 text-emerald-500" />}
+            label="Solved in paths"
+            value={String(stats.solved)}
+            hint={
+              stats.totalProblems > 0
+                ? `of ${stats.totalProblems} problems`
+                : undefined
+            }
+          />
+          <PageStat
+            icon={<BookOpen className="size-4 text-violet-500" />}
+            label="Custom paths"
+            value={String(stats.customCount)}
+          />
+          <PageStat
+            icon={<Target className="size-4 text-muted-foreground" />}
+            label="Path progress"
+            value={`${stats.pct}%`}
+          />
+        </PageStatGrid>
 
-        {!error && learningPath && (
-          <ol className="mt-8 space-y-3">
-            {learningPath.problems.map((problem, idx) => (
-              <ProblemCard
-                key={problem.id}
-                problem={problem}
-                index={idx + 1}
-                solved={solvedIds.has(problem.id)}
-              />
-            ))}
-          </ol>
+        {showNewPath && token && (
+          <section className="panel-card bg-card p-3 md:p-4">
+            <p className="mb-3 text-xs font-medium text-muted-foreground">
+              Create a custom path
+            </p>
+            <NewPathForm
+              token={token}
+              onCancel={() => setShowNewPath(false)}
+              onCreated={(path) => {
+                setPaths((prev) => [...prev, path]);
+                setShowNewPath(false);
+              }}
+            />
+          </section>
         )}
-      </div>
-    </AppShell>
-  );
-}
 
-function ProblemCard({
-  problem,
-  index,
-  solved,
-}: {
-  problem: LearningPathProblem;
-  index: number;
-  solved: boolean;
-}) {
-  return (
-    <li>
-      <Link
-        href={`/practice/${problem.id}`}
-        className={`group flex items-center gap-4 rounded-xl border bg-card px-4 py-3 shadow-card transition-all hover:shadow-md ${
-          solved
-            ? "border-emerald-500/20 hover:border-emerald-500/40"
-            : "border-border/80 hover:border-primary/30"
-        }`}
-      >
-        <span
-          className={`flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-            solved
-              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-              : "bg-muted text-muted-foreground"
-          }`}
+        <PageSection
+          title="Curated & personalized"
+          description="Official tracks and your generated learning sequence"
+          icon={<BookOpen className="size-4 text-primary" />}
         >
-          {solved ? <CheckCircle2 className="size-4" /> : index}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium group-hover:text-primary">{problem.title}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <Badge
-              variant={difficultyBadgeVariant(problem.difficulty)}
-              className="capitalize text-xs"
+          {curatedSection.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+              Complete your profile to generate a personalized path, or check back
+              for curated tracks.
+            </p>
+          ) : (
+            <div className="grid gap-3 p-3 sm:grid-cols-2 md:grid-cols-3 md:p-4">
+              {curatedSection.map((path) => (
+                <PathCard key={path.id} path={path} />
+              ))}
+            </div>
+          )}
+        </PageSection>
+
+        <PageSection
+          title="My paths"
+          description="Custom collections — add problems from the library"
+          action={
+            <Link
+              href="/problems"
+              className="text-xs font-medium text-primary transition-colors hover:underline"
             >
-              {problem.difficulty}
-            </Badge>
-            {problem.topic.slice(0, 3).map((t) => (
-              <span key={t} className="text-xs text-muted-foreground capitalize">
-                {t.replace(/_/g, " ")}
-              </span>
-            ))}
-          </div>
-        </div>
-        <ChevronRight className="size-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-primary" />
-      </Link>
-    </li>
+              Browse problems
+            </Link>
+          }
+        >
+          {customPaths.length === 0 ? (
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">
+              You haven&apos;t created any paths yet. Use{" "}
+              <button
+                type="button"
+                className="font-medium text-primary hover:underline"
+                onClick={() => setShowNewPath(true)}
+              >
+                New path
+              </button>{" "}
+              or add problems from the library.
+            </p>
+          ) : (
+            <div className="grid gap-3 p-3 sm:grid-cols-2 md:grid-cols-3 md:p-4">
+              {customPaths.map((path) => (
+                <PathCard
+                  key={path.id}
+                  path={path}
+                  menu={
+                    <div className="relative">
+                      <button
+                        type="button"
+                        className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        onClick={() =>
+                          setMenuPathId((id) => (id === path.id ? null : path.id))
+                        }
+                        aria-label="Path options"
+                      >
+                        <MoreVertical className="size-4" />
+                      </button>
+                      {menuPathId === path.id && (
+                        <div className="absolute right-0 z-10 mt-1 w-36 rounded-lg border border-border bg-popover py-1 shadow-lg">
+                          <button
+                            type="button"
+                            className="block w-full px-3 py-2 text-left text-xs hover:bg-muted"
+                            onClick={() => {
+                              setRenamingId(path.id);
+                              setRenameTitle(path.title);
+                              setMenuPathId(null);
+                            }}
+                          >
+                            Rename
+                          </button>
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-1.5 px-3 py-2 text-left text-xs text-destructive hover:bg-muted"
+                            onClick={() => deletePath(path.id)}
+                          >
+                            <Trash2 className="size-3" />
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  }
+                />
+              ))}
+            </div>
+          )}
+
+          {renamingId && (
+            <div className="border-t border-border/50 p-3 md:p-4">
+              <p className="mb-2 text-xs font-medium text-muted-foreground">Rename path</p>
+              <div className="flex gap-2">
+                <input
+                  value={renameTitle}
+                  onChange={(e) => setRenameTitle(e.target.value)}
+                  className="h-8 flex-1 rounded-md border border-border bg-background px-2 text-sm"
+                />
+                <Button size="sm" onClick={() => saveRename(renamingId)}>
+                  Save
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setRenamingId(null)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </PageSection>
+      </PageContent>
+    </AppShell>
   );
 }

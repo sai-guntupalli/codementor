@@ -1,6 +1,8 @@
 import uuid
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, computed_field, field_validator
+
+from core.problem_titles import strip_curriculum_prefix
 
 
 class UserOut(BaseModel):
@@ -34,6 +36,11 @@ class UserUpdate(BaseModel):
 class LearningPathProblem(BaseModel):
     id: uuid.UUID
     title: str
+
+    @field_validator("title", mode="before")
+    @classmethod
+    def _strip_title(cls, value: object) -> object:
+        return strip_curriculum_prefix(value) if isinstance(value, str) else value
     slug: str | None
     difficulty: str
     topic: list[str]
@@ -45,3 +52,6 @@ class LearningPathProblem(BaseModel):
 class LearningPathOut(BaseModel):
     problems: list[LearningPathProblem]
     message: str
+    next_problems: list[LearningPathProblem] = []
+    library_total: int = 0
+    difficulties: list[str] = []

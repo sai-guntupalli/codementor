@@ -5,6 +5,8 @@ export type RunResult = {
   stderr: string;
   exit_code: number | null;
   timed_out: boolean;
+  /** True when the server wrapped your function and called it with the example input. */
+  harnessed?: boolean;
 };
 
 export type TestCaseResult = {
@@ -49,10 +51,24 @@ function normalizeOutput(s: string): string {
     .trim();
 }
 
-function normalizeInput(raw: string): string {
+/** Prepare stdin for Python input() — real newlines and trailing line feed. */
+export function normalizeStdin(raw: string): string {
   const trimmed = raw.trim();
   if (trimmed === "(none)" || trimmed === "") return "";
-  return trimmed;
+  let s = trimmed.replace(/\\n/g, "\n");
+  if (!s.endsWith("\n")) s += "\n";
+  return s;
+}
+
+/** True when example input is literal stdin for a script (not a REPL snippet or random fixture). */
+export function isRunnableExample(input: string): boolean {
+  const t = input.trim();
+  if (t === "" || t === "(none)" || /see description/i.test(t)) return false;
+  // Function calls, assignments, and multiline programs are not stdin test cases.
+  if (/\w\s*\(/.test(t)) return false;
+  if (/^[a-z_][\w]*\s*=/i.test(t)) return false;
+  if (/^(def|class|import|from)\b/m.test(t)) return false;
+  return true;
 }
 
 export async function runTestCases(
@@ -61,9 +77,10 @@ export async function runTestCases(
   token: string,
   examples: { input: string; output: string }[]
 ): Promise<TestCaseResult[]> {
+  const runnable = examples.filter((ex) => isRunnableExample(ex.input));
   const results = await Promise.all(
-    examples.map(async (ex, i) => {
-      const stdin = normalizeInput(ex.input);
+    runnable.map(async (ex, i) => {
+      const stdin = normalizeStdin(ex.input);
       const expected = normalizeOutput(ex.output);
       try {
         const result = await runCode(language, code, token, stdin);

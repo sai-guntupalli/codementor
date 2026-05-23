@@ -52,6 +52,27 @@ def list_my_submissions(
     ]
 
 
+@router.get("/me/by-problem/{problem_id}", response_model=SubmissionOut)
+def get_my_latest_submission_for_problem(
+    problem_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> SubmissionOut:
+    """Latest submission for this problem by the current user (code + review + score)."""
+    submission = (
+        db.query(Submission)
+        .filter(
+            Submission.user_id == current_user.id,
+            Submission.problem_id == problem_id,
+        )
+        .order_by(Submission.created_at.desc())
+        .first()
+    )
+    if not submission:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No submission found")
+    return submission
+
+
 @router.get("/me/problem-ids", response_model=SolvedProblemIdsOut)
 def list_my_solved_problem_ids(
     current_user: Annotated[User, Depends(get_current_user)],

@@ -1,7 +1,9 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+from core.problem_titles import strip_curriculum_prefix
 
 
 class SubmissionCreate(BaseModel):
@@ -30,6 +32,11 @@ class SubmissionHistoryItem(BaseModel):
     id: uuid.UUID
     problem_id: uuid.UUID
     problem_title: str
+
+    @field_validator("problem_title", mode="before")
+    @classmethod
+    def _strip_problem_title(cls, value: object) -> object:
+        return strip_curriculum_prefix(value) if isinstance(value, str) else value
     language: str
     score: float | None
     hints_used: int

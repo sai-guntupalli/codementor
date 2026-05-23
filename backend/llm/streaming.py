@@ -60,6 +60,20 @@ async def stream_llm_to_sse(
     yield f"data: {json.dumps(done)}\n\n"
 
 
+async def stream_static_to_sse(text: str) -> AsyncIterator[str]:
+    """Yield pre-written text as SSE tokens (no LLM call)."""
+    if text:
+        yield f"data: {json.dumps({'token': text})}\n\n"
+    done = {
+        "type": "done",
+        "model": "stored",
+        "tokens_used": 0,
+        "cost_usd": 0.0,
+        "source": "stored",
+    }
+    yield f"data: {json.dumps(done)}\n\n"
+
+
 def sse_response(
     generator: AsyncIterator[str],
 ) -> StreamingResponse:

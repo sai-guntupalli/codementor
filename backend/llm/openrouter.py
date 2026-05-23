@@ -79,3 +79,41 @@ async def stream_chat(
                     yield content, None
 
             yield "", usage
+
+
+async def complete_chat(
+    *,
+    model: str,
+    messages: list[dict[str, str]],
+    max_tokens: int = 1024,
+    temperature: float = 0.2,
+) -> tuple[str, dict[str, Any] | None]:
+    """Non-streaming completion; returns (message_text, usage_dict)."""
+    payload = {
+        "model": model,
+        "messages": messages,
+        "stream": False,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        response = await client.post(
+            OPENROUTER_CHAT_URL,
+            headers=_headers(),
+            json=payload,
+        )
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"OpenRouter error {response.status_code}: {response.text[:500]}",
+            )
+        data = response.json()
+        choices = data.get("choices") or []
+        if not choices:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="OpenRouter returned no choices",
+            )
+        content = choices[0].get("message", {}).get("content") or ""
+        return content, data.get("usage")

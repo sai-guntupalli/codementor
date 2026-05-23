@@ -4,6 +4,9 @@ import re
 import subprocess
 from pathlib import Path
 
+from core.problem_content import pre_clean_description
+from core.problem_titles import strip_curriculum_prefix
+
 CLONE_ROOT = Path("/tmp/hmc_scrape/4geeks")
 
 REPOS = [
@@ -96,18 +99,17 @@ def _scrape_repo(repo: dict) -> list[dict]:
 
         raw_readme = readme.read_text(errors="ignore")
         description = _clean_readme(raw_readme)
+        description, readme_hints = pre_clean_description(description)
         if len(description) < 20:
             continue
 
-        title = _extract_title(raw_readme) or ex_dir.name.replace("-", " ").title()
+        raw_title = _extract_title(raw_readme) or ex_dir.name.replace("-", " ").title()
+        title = strip_curriculum_prefix(raw_title)
         # Remove leading number prefix from dir name for slug
         slug_base = re.sub(r"^\d+-?", "", ex_dir.name)
         slug = f"4geeks-{slug_base}" if slug_base else f"4geeks-{ex_dir.name}"
 
-        # Try to derive examples from solution.hide.py
         examples: list[dict] = []
-        if solution.exists():
-            examples = [{"input": "(see description)", "output": "(see solution)"}]
 
         counter += 1
         problems.append(
@@ -118,9 +120,8 @@ def _scrape_repo(repo: dict) -> list[dict]:
                 "difficulty": "easy",
                 "language": "python",
                 "topic": _topic_from_repo(repo["name"]),
-                "examples": examples if examples else [
-                    {"input": "(none)", "output": "(see description)"}
-                ],
+                "examples": examples,
+                "hints": readme_hints or None,
                 "constraints": None,
                 "source": "imported",
                 "source_url": repo["url"].replace(".git", ""),

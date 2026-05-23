@@ -25,6 +25,30 @@ def problem_text(problem: Problem) -> str:
     return f"{problem.title}\n\n{problem.description}"
 
 
+MAX_HINTS = 3
+
+
+def normalize_hints(raw: list | None) -> list[str]:
+    """Return up to 3 non-empty hint strings from JSONB."""
+    if not raw:
+        return []
+    out: list[str] = []
+    for item in raw:
+        if isinstance(item, str) and item.strip():
+            out.append(item.strip())
+        if len(out) >= MAX_HINTS:
+            break
+    return out
+
+
+def get_stored_hint(problem: Problem, hint_number: int) -> str | None:
+    """1-based hint index into problems.hints."""
+    hints = normalize_hints(problem.hints)
+    if hint_number < 1 or hint_number > len(hints):
+        return None
+    return hints[hint_number - 1]
+
+
 def hint_variables(problem: Problem, user: User, code: str, hint_number: int) -> dict[str, str]:
     return {
         "problem": problem_text(problem),

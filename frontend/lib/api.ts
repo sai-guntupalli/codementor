@@ -30,10 +30,92 @@ export type LearningPathProblem = {
   language: string;
 };
 
+/** Legacy personalized path payload from GET /users/me/learning-path */
 export type LearningPathOut = {
   problems: LearningPathProblem[];
   message: string;
+  next_problems: LearningPathProblem[];
+  library_total: number;
+  difficulties: string[];
 };
+
+export type LearningPathProgress = {
+  solved_count: number;
+  total_count: number;
+  progress_pct: number;
+};
+
+export type LearningPathListItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  type: "curated" | "personalized" | "custom";
+  created_by: string | null;
+  is_public: boolean;
+  sort_order: number | null;
+  created_at: string;
+  progress: LearningPathProgress;
+};
+
+export type LearningPathProblemItem = {
+  id: string;
+  title: string;
+  slug: string | null;
+  difficulty: string;
+  topic: string[];
+  language: string;
+  solved: boolean;
+};
+
+export type LearningPathCreate = {
+  title: string;
+  description?: string | null;
+};
+
+export type LearningPathUpdate = {
+  title?: string;
+  description?: string | null;
+};
+
+export type ProblemListItem = {
+  id: string;
+  title: string;
+  slug: string | null;
+  language: string;
+  difficulty: string;
+  topic: string[];
+  source: string;
+  external_id: number | null;
+  created_at: string;
+};
+
+export type ProblemList = {
+  items: ProblemListItem[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export type TagCount = {
+  tag: string;
+  count: number;
+};
+
+export type ProblemFacets = {
+  total: number;
+  by_difficulty: Record<string, number>;
+  by_language: Record<string, number>;
+  solved_count: number;
+  unsolved_count: number;
+  popular_tags: TagCount[];
+};
+
+export type ProblemTagsOut = {
+  tags: TagCount[];
+  suggested: string[];
+};
+
+export type ProblemSort = "default" | "title" | "newest" | "recommended";
 
 function formatApiError(detail: unknown): string {
   if (typeof detail === "string") return detail;
@@ -64,6 +146,20 @@ export async function apiFetch<T>(
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
+
+export type SubmissionOut = {
+  id: string;
+  user_id: string;
+  problem_id: string;
+  code: string;
+  language: string;
+  llm_review: string | null;
+  improved_code: string | null;
+  hints_used: number;
+  solution_viewed: boolean;
+  score: number | null;
+  created_at: string;
+};
 
 export type SubmissionHistoryItem = {
   id: string;
