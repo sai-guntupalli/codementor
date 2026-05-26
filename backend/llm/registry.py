@@ -41,3 +41,8 @@ def render_prompt(template: str, variables: dict[str, str]) -> str:
 def load_and_render(db: Session, name: str, variables: dict[str, str]) -> str:
     prompt = load_active_prompt(db, name)
     return render_prompt(prompt.template, variables)
+
+
+def prompt_max_tokens(db: Session, name: str) -> int | None:
+    """Return max_tokens for the active prompt, or None for OpenRouter default."""
+    return load_active_prompt(db, name).max_tokens

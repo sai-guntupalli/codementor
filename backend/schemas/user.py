@@ -16,6 +16,7 @@ class UserOut(BaseModel):
     skill_level: dict
     streak_days: int
     xp_total: int
+    ai_submit_review: bool = False
 
     @computed_field
     @property

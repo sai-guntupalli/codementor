@@ -7,6 +7,7 @@ import json
 from sqlalchemy.orm import Session
 
 from llm.openrouter import complete_chat
+from llm.pricing import compute_cost
 from llm.practice import MAX_HINTS, normalize_hints
 from llm.router import resolve_model
 from llm.streaming import log_stream_usage
@@ -85,8 +86,17 @@ async def generate_hints_for_problem(
     if not hints:
         raise ValueError("LLM returned invalid hints JSON")
 
-    tokens = int(usage.get("total_tokens") or usage.get("completion_tokens") or 0) if usage else 0
+    input_tokens = 0
+    output_tokens = 0
+    if usage:
+        input_tokens = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)
+        output_tokens = int(usage.get("completion_tokens") or usage.get("output_tokens") or 0)
+    tokens = input_tokens + output_tokens
+    if not tokens and usage:
+        tokens = int(usage.get("total_tokens") or 0)
     cost = float(usage.get("cost") or 0.0) if usage else 0.0
+    if cost == 0.0 and (input_tokens > 0 or output_tokens > 0):
+        cost = compute_cost(model, input_tokens, output_tokens)
     log_stream_usage(
         db,
         user=user,
@@ -95,6 +105,9 @@ async def generate_hints_for_problem(
         model=model,
         tokens_used=tokens,
         cost_usd=cost,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        problem_id=problem.id,
     )
     return hints
 

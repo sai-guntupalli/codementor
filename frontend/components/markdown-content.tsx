@@ -19,7 +19,7 @@ SyntaxHighlighter.registerLanguage("bash", bash);
 SyntaxHighlighter.registerLanguage("json", json);
 import type { Components } from "react-markdown";
 import { cn } from "@/lib/utils";
-import { Maximize2, X } from "lucide-react";
+import { Check, Copy, Maximize2, X } from "lucide-react";
 
 const codeTheme = {
   'code[class*="language-"]': {
@@ -80,15 +80,15 @@ const codeTagProps = {
 
 const blockCodeStyle = {
   margin: 0,
-  padding: "0.875rem 1rem",
-  borderRadius: "0.5rem",
-  border: "1px solid oklch(0.35 0.04 275 / 0.4)",
-  background: "oklch(0.22 0.04 275)",
-  overflowX: "auto" as const,
+  padding: "0.625rem 0.75rem",
+  background: "transparent",
+  border: "none",
+  borderRadius: 0,
+  overflow: "visible" as const,
   display: "block",
-  maxWidth: "100%",
+  minWidth: "min-content",
   fontSize: "0.8125rem",
-  lineHeight: "1.6",
+  lineHeight: "1.55",
   whiteSpace: "pre" as const,
 };
 
@@ -104,6 +104,63 @@ const fullscreenCodeStyle = {
 };
 
 type MaximizedCode = { code: string; language: string };
+
+function MarkdownCodeBlock({
+  code,
+  language,
+  onExpand,
+}: {
+  code: string;
+  language: string;
+  onExpand: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
+
+  return (
+    <div className="not-prose my-2 overflow-hidden rounded-lg border border-border/70 bg-[oklch(0.22_0.04_275)] shadow-sm">
+      <div className="flex items-center justify-end gap-0.5 border-b border-white/10 px-1 py-0.5">
+        <button
+          type="button"
+          onClick={() => void handleCopy()}
+          className="rounded p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+          title={copied ? "Copied" : "Copy code"}
+        >
+          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+        </button>
+        <button
+          type="button"
+          onClick={onExpand}
+          className="rounded p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+          title="Expand"
+        >
+          <Maximize2 className="size-3" />
+        </button>
+      </div>
+      <div className="overflow-x-auto">
+        <SyntaxHighlighter
+          language={language}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          style={codeTheme as any}
+          PreTag="pre"
+          customStyle={blockCodeStyle}
+          codeTagProps={codeTagProps}
+        >
+          {code}
+        </SyntaxHighlighter>
+      </div>
+    </div>
+  );
+}
 
 type MarkdownContentProps = {
   content: string;
@@ -133,26 +190,11 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
         if (match) {
           const code = String(children).replace(/\n$/, "");
           return (
-            <div className="group relative">
-              <button
-                type="button"
-                onClick={() => setMaximized({ code, language: match[1] })}
-                className="absolute right-2 top-2 z-10 rounded-md p-1.5 text-white/40 opacity-0 transition-all group-hover:opacity-100 hover:bg-white/10 hover:text-white"
-                title="Expand"
-              >
-                <Maximize2 className="size-3.5" />
-              </button>
-              <SyntaxHighlighter
-                language={match[1]}
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                style={codeTheme as any}
-                PreTag="pre"
-                customStyle={blockCodeStyle}
-                codeTagProps={codeTagProps}
-              >
-                {code}
-              </SyntaxHighlighter>
-            </div>
+            <MarkdownCodeBlock
+              code={code}
+              language={match[1]}
+              onExpand={() => setMaximized({ code, language: match[1] })}
+            />
           );
         }
 
@@ -199,14 +241,24 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
             <span className="font-mono text-sm font-medium text-white/50">
               {maximized.language}
             </span>
-            <button
-              type="button"
-              onClick={() => setMaximized(null)}
-              className="rounded-md p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
-              title="Close (Esc)"
-            >
-              <X className="size-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => void navigator.clipboard.writeText(maximized.code)}
+                className="rounded-md p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+                title="Copy code"
+              >
+                <Copy className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setMaximized(null)}
+                className="rounded-md p-1.5 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
+                title="Close (Esc)"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
           </div>
           <div className="flex-1 overflow-auto p-6">
             <SyntaxHighlighter

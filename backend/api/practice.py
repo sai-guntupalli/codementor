@@ -23,7 +23,9 @@ from llm.practice import (
     surprise_variables,
     teach_variables,
 )
-from llm.registry import load_and_render
+from llm.pricing import compute_cost
+from llm.quota import QuotaStatus, require_quota
+from llm.registry import load_and_render, prompt_max_tokens
 from llm.router import resolve_model
 from llm.streaming import (
     log_stream_usage,
@@ -64,15 +66,28 @@ async def _stream_with_usage_log(
     prompt_name: str,
     model: str,
     messages: list[dict[str, str]],
+    quota_status: QuotaStatus,
+    problem_id: uuid.UUID | None = None,
+    max_tokens: int | None = None,
 ) -> AsyncIterator[str]:
     total_tokens = 0
     cost = 0.0
-    async for line in stream_llm_to_sse(model=model, messages=messages):
+    input_tokens = 0
+    output_tokens = 0
+    async for line in stream_llm_to_sse(
+        model=model,
+        messages=messages,
+        problem_id=problem_id,
+        max_tokens=max_tokens,
+        quota_status=quota_status,
+    ):
         if line.startswith("data: "):
             payload = json.loads(line[6:].strip())
             if payload.get("type") == "done":
                 total_tokens = int(payload.get("tokens_used", 0))
                 cost = float(payload.get("cost_usd", 0.0))
+                input_tokens = int(payload.get("input_tokens", 0))
+                output_tokens = int(payload.get("output_tokens", 0))
         yield line
     log_stream_usage(
         db,
@@ -82,6 +97,9 @@ async def _stream_with_usage_log(
         model=model,
         tokens_used=total_tokens,
         cost_usd=cost,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        problem_id=problem_id,
     )
 
 
@@ -90,6 +108,7 @@ async def surprise_me(
     body: SurpriseRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    quota_status: Annotated[QuotaStatus, Depends(require_quota)],
 ) -> StreamingResponse:
     """PRAC-08: Generate a tailored problem and save it with source=llm."""
     recent = (
@@ -105,6 +124,7 @@ async def surprise_me(
     )
     rendered = load_and_render(db, "surprise_me", variables)
     model = resolve_model(db, current_user)
+    max_tokens = prompt_max_tokens(db, "surprise_me")
     messages = [{"role": "user", "content": rendered}]
 
     async def event_generator():
@@ -112,7 +132,9 @@ async def surprise_me(
         usage_meta: dict | None = None
         total_tokens = 0
 
-        async for token, usage in stream_chat(model=model, messages=messages):
+        async for token, usage in stream_chat(
+            model=model, messages=messages, max_tokens=max_tokens
+        ):
             if usage is not None:
                 usage_meta = usage
                 continue
@@ -145,13 +167,21 @@ async def surprise_me(
         except (ValueError, TypeError, json.JSONDecodeError) as exc:
             parse_error = str(exc)
 
+        input_tokens = 0
+        output_tokens = 0
         if usage_meta:
-            total_tokens = int(
-                usage_meta.get("total_tokens")
-                or usage_meta.get("completion_tokens")
-                or total_tokens
+            input_tokens = int(
+                usage_meta.get("prompt_tokens") or usage_meta.get("input_tokens") or 0
+            )
+            output_tokens = int(
+                usage_meta.get("completion_tokens") or usage_meta.get("output_tokens") or 0
+            )
+            total_tokens = input_tokens + output_tokens or int(
+                usage_meta.get("total_tokens") or total_tokens
             )
             cost = float(usage_meta.get("cost") or 0.0)
+            if cost == 0.0 and (input_tokens > 0 or output_tokens > 0):
+                cost = compute_cost(model, input_tokens, output_tokens)
         else:
             cost = 0.0
 
@@ -163,14 +193,22 @@ async def surprise_me(
             model=model,
             tokens_used=total_tokens,
             cost_usd=cost,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
         )
 
         done: dict = {
             "type": "done",
             "model": model,
             "tokens_used": total_tokens,
+            "cost_usd": cost,
             "problem_id": problem_id,
+            "calls_remaining": max(
+                0, quota_status.calls_limit - quota_status.calls_used - 1
+            ),
         }
+        if quota_status.pct_used >= 0.8:
+            done["quota_warning"] = True
         if parse_error:
             done["parse_error"] = parse_error
         yield f"data: {json.dumps(done)}\n\n"
@@ -184,6 +222,7 @@ async def request_hint(
     body: HintRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    _quota: Annotated[QuotaStatus, Depends(require_quota)],
 ) -> StreamingResponse:
     """PRAC-04: Progressive hint from problems.hints; lazy-generates all 3 on first use."""
     problem = _get_problem(db, problem_id)
@@ -229,6 +268,7 @@ async def request_solution(
     body: SolutionRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    quota_status: Annotated[QuotaStatus, Depends(require_quota)],
 ) -> StreamingResponse:
     """PRAC-05: Stream a solution at the chosen depth level."""
     if body.solution_level not in SOLUTION_LEVELS:
@@ -240,6 +280,7 @@ async def request_solution(
     variables = solution_variables(problem, current_user, body.solution_level)
     rendered = load_and_render(db, "solution_generator", variables)
     model = resolve_model(db, current_user)
+    max_tokens = prompt_max_tokens(db, "solution_generator")
     messages = [{"role": "user", "content": rendered}]
 
     async def event_generator():
@@ -250,6 +291,9 @@ async def request_solution(
             prompt_name="solution_generator",
             model=model,
             messages=messages,
+            quota_status=quota_status,
+            problem_id=problem_id,
+            max_tokens=max_tokens,
         ):
             yield line
 
@@ -277,6 +321,7 @@ async def teach_me(
     body: TeachRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    quota_status: Annotated[QuotaStatus, Depends(require_quota)],
 ) -> StreamingResponse:
     """PRAC-06: Line-by-line explanation of the user's code."""
     if body.explain_style not in EXPLAIN_STYLES:
@@ -290,6 +335,7 @@ async def teach_me(
     )
     rendered = load_and_render(db, "teach_me", variables)
     model = resolve_model(db, current_user)
+    max_tokens = prompt_max_tokens(db, "teach_me")
     messages = [{"role": "user", "content": rendered}]
 
     return sse_response(
@@ -300,6 +346,9 @@ async def teach_me(
             prompt_name="teach_me",
             model=model,
             messages=messages,
+            quota_status=quota_status,
+            problem_id=problem_id,
+            max_tokens=max_tokens,
         )
     )
 
@@ -310,6 +359,7 @@ async def code_quality_review(
     body: CodeReviewRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    quota_status: Annotated[QuotaStatus, Depends(require_quota)],
 ) -> StreamingResponse:
     """PRAC-09: Code quality review — what's good, what's wrong, what to improve."""
     problem = _get_problem(db, problem_id)
@@ -340,6 +390,9 @@ async def code_quality_review(
             prompt_name="code_quality_review",
             model=model,
             messages=messages,
+            quota_status=quota_status,
+            problem_id=problem_id,
+            max_tokens=prompt_max_tokens(db, "code_review"),
         )
     )
 
@@ -350,6 +403,7 @@ async def practice_chat(
     body: ChatRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    quota_status: Annotated[QuotaStatus, Depends(require_quota)],
 ) -> StreamingResponse:
     """PRAC-07: Freeform Q&A about the current problem."""
     problem = _get_problem(db, problem_id)
@@ -374,5 +428,8 @@ async def practice_chat(
             prompt_name="freeform",
             model=model,
             messages=messages,
+            quota_status=quota_status,
+            problem_id=problem_id,
+            max_tokens=600,
         )
     )

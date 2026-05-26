@@ -77,3 +77,57 @@ def assess_submission(
     db.commit()
 
     return {"score": score, "xp_earned": xp, "skill_level": skill_level}
+
+
+def assess_submission_from_tests(
+    db: Session,
+    submission: Submission,
+    problem: Problem,
+    user: User,
+    *,
+    passed_count: int,
+    total_count: int,
+) -> dict:
+    """Score submission from example test results (no LLM review)."""
+    if total_count == 0:
+        score = 0.5
+    elif passed_count >= total_count:
+        score = 1.0
+    else:
+        score = max(0.5, passed_count / total_count)
+
+    xp = _xp_for(score, submission.hints_used, submission.solution_viewed)
+
+    skill_level: dict = dict(user.skill_level or {})
+    for topic in problem.topic or []:
+        current = float(skill_level.get(topic, 0.0))
+        if score >= 0.9:
+            skill_level[topic] = round(min(1.0, current + 0.10), 3)
+        elif score >= 0.7:
+            skill_level[topic] = round(min(1.0, current + 0.05), 3)
+        else:
+            skill_level[topic] = round(max(0.0, current - 0.02), 3)
+
+    submission.score = score
+    user.skill_level = skill_level
+    user.xp_total = (user.xp_total or 0) + xp
+    recompute_streak(user, db)
+
+    snapshot = SkillSnapshot(
+        user_id=user.id,
+        snapshot={
+            "skill_level": skill_level,
+            "xp_earned": xp,
+            "score": score,
+            "submission_id": str(submission.id),
+            "problem_id": str(problem.id),
+            "graded_by": "tests",
+        },
+        trigger="submission",
+    )
+    db.add(snapshot)
+    db.add(submission)
+    db.add(user)
+    db.commit()
+
+    return {"score": score, "xp_earned": xp, "skill_level": skill_level}

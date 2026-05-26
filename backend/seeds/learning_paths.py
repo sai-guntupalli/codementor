@@ -21,7 +21,7 @@ CURATED_PATHS: list[dict] = [
     },
     {
         "title": "Input & Output",
-        "description": "Read from stdin, format output, and practice I/O patterns.",
+        "description": "",
         "sort_order": 2,
         "topic": "io",
         "max_problems": 18,

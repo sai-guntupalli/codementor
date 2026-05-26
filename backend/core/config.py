@@ -6,6 +6,8 @@ class Settings(BaseSettings):
 
     app_name: str = "CodeMentor API"
     debug: bool = False
+    """Allow PUT /users/me/plan without Stripe (also enabled when debug=true)."""
+    dev_plan_switch: bool = False
     frontend_url: str = "http://localhost:3000"
 
     database_url: str = ""

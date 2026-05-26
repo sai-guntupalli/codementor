@@ -7,8 +7,14 @@ const TYPE_PRIORITY: Record<LearningPathListItem["type"], number> = {
 };
 
 export function pickActiveLearningPath(
-  paths: LearningPathListItem[]
+  paths: LearningPathListItem[],
+  preferredPathId?: string | null
 ): LearningPathListItem | null {
+  if (preferredPathId) {
+    const preferred = paths.find((p) => p.id === preferredPathId);
+    if (preferred && preferred.progress.total_count > 0) return preferred;
+  }
+
   const withProblems = paths.filter((p) => p.progress.total_count > 0);
   if (withProblems.length === 0) return null;
 

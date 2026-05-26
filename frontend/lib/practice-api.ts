@@ -1,3 +1,4 @@
+import { apiFetch, type SubmissionVerifyOut } from "@/lib/api";
 import { consumeSSE } from "@/lib/sse";
 
 const apiUrl = () => process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -119,4 +120,11 @@ export function streamReview(
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   }).then((response) => consumeSSE(response, handlers));
+}
+
+export function verifySubmission(submissionId: string, token: string) {
+  return apiFetch<SubmissionVerifyOut>(`/submissions/${submissionId}/verify`, {
+    method: "POST",
+    token,
+  });
 }

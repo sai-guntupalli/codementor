@@ -2,9 +2,11 @@ import uuid
 from collections import defaultdict
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from core.active_path import set_user_active_learning_path
+from core.dashboard_insights import record_last_practice
 from core.deps import get_current_user
 from db.session import get_db
 from models.learning import LearningPath, LearningPathProblem, LearningPathType, Problem, Submission
@@ -255,6 +257,30 @@ def list_paths_for_user(db: Session, user: User) -> list[LearningPathOut]:
         )
         for p in all_paths
     ]
+
+
+@router.post("/{path_id}/focus", status_code=status.HTTP_204_NO_CONTENT)
+def focus_learning_path(
+    path_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    problem_id: Annotated[uuid.UUID | None, Query()] = None,
+) -> None:
+    """Mark a path as the user's current focus (dashboard + continue links)."""
+    path = _get_path_or_404(db, path_id)
+    if path.type == LearningPathType.curated:
+        if not path.is_public:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Path not accessible")
+    elif path.created_by != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Path not accessible")
+    try:
+        set_user_active_learning_path(db, current_user.id, path)
+        if problem_id is not None:
+            record_last_practice(
+                db, current_user, problem_id=problem_id, path_id=path_id
+            )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
 
 @router.get("/{path_id}/problems", response_model=list[LearningPathProblemItem])

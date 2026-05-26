@@ -18,23 +18,44 @@ import {
   Zap,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { ActivePathSwitcher } from "@/components/dashboard/active-path-switcher";
+import { DashboardAiUsage } from "@/components/dashboard/dashboard-ai-usage";
+import { DashboardBookmarks } from "@/components/dashboard/dashboard-bookmarks";
+import { DashboardDailySection } from "@/components/dashboard/dashboard-daily-section";
+import { DashboardPathComplete } from "@/components/dashboard/dashboard-path-complete";
+import { DashboardResumeCard } from "@/components/dashboard/dashboard-resume-card";
+import { DashboardSuggestedPath } from "@/components/dashboard/dashboard-suggested-path";
+import { DashboardWeakTopics } from "@/components/dashboard/dashboard-weak-topics";
+import { DashboardWeekStats } from "@/components/dashboard/dashboard-week-stats";
 import {
   RecommendedEmpty,
   RecommendedSection,
 } from "@/components/dashboard/recommended-section";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { getValidatedAccessToken } from "@/lib/auth-session";
 import {
   apiFetch,
+  focusLearningPath,
   type DashboardOut,
+  type DailyChallengeOut,
+  type DailyGoalOut,
+  type LastSessionOut,
   type LearningPathListItem,
   type LearningPathProblemItem,
+  type PathCompletionOut,
+  type SuggestedPathOut,
+  type UsageOut,
   type UserOut,
-  type SubmissionHistoryItem,
+  type WeakTopicOut,
+  type BookmarkSummaryOut,
+  type WeekStatsOut,
 } from "@/lib/api";
-import { setPracticePathContext } from "@/lib/learning-path-context";
+import {
+  PRACTICE_PATH_KEY,
+  recordActiveLearningPath,
+  setPracticePathContext,
+} from "@/lib/learning-path-context";
 import {
   EXPERIENCE_MESSAGES,
   pickActiveLearningPath,
@@ -44,13 +65,55 @@ import { cn } from "@/lib/utils";
 export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserOut | null>(null);
-  const [recentSubmissions, setRecentSubmissions] = useState<SubmissionHistoryItem[]>([]);
   const [paths, setPaths] = useState<LearningPathListItem[]>([]);
   const [activePath, setActivePath] = useState<LearningPathListItem | null>(null);
   const [activePathProblems, setActivePathProblems] = useState<LearningPathProblemItem[]>([]);
   const [solvedCount, setSolvedCount] = useState(0);
   const [libraryTotal, setLibraryTotal] = useState<number | null>(null);
+  const [usage, setUsage] = useState<UsageOut | null>(null);
+  const [dailyGoal, setDailyGoal] = useState<DailyGoalOut | null>(null);
+  const [dailyChallenge, setDailyChallenge] = useState<DailyChallengeOut | null>(null);
+  const [weakTopics, setWeakTopics] = useState<WeakTopicOut[]>([]);
+  const [bookmarks, setBookmarks] = useState<BookmarkSummaryOut[]>([]);
+  const [weekStats, setWeekStats] = useState<WeekStatsOut | null>(null);
+  const [lastSession, setLastSession] = useState<LastSessionOut | null>(null);
+  const [pathCompletion, setPathCompletion] = useState<PathCompletionOut | null>(null);
+  const [suggestedPath, setSuggestedPath] = useState<SuggestedPathOut | null>(null);
+  const [pathsStartedCount, setPathsStartedCount] = useState(0);
+  const [hasAnySubmission, setHasAnySubmission] = useState(false);
+  const [resumeHasDraft, setResumeHasDraft] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [switchingPath, setSwitchingPath] = useState(false);
+
+  function applyDashboard(data: DashboardOut) {
+    setProfile(data.user);
+    setPaths(data.learning_paths);
+    setSolvedCount(data.solved_count);
+    setLibraryTotal(data.library_total);
+    setUsage(data.usage);
+    setDailyGoal(data.daily_goal);
+    setDailyChallenge(data.daily_challenge);
+    setWeakTopics(data.weak_topics);
+    setBookmarks(data.bookmarks);
+    setWeekStats(data.week_stats);
+    setLastSession(data.last_session);
+    setPathCompletion(data.path_completion);
+    setSuggestedPath(data.suggested_path);
+    setPathsStartedCount(data.paths_started_count);
+    setHasAnySubmission(data.has_any_submission);
+    const selected =
+      data.learning_paths.find((p) => p.id === data.active_path_id) ??
+      pickActiveLearningPath(data.learning_paths, data.active_path_id);
+    setActivePath(selected ?? null);
+    setActivePathProblems(data.active_path_problems);
+    if (data.last_session && typeof window !== "undefined") {
+      setResumeHasDraft(
+        Boolean(localStorage.getItem(`cm_code_${data.last_session.problem_id}`))
+      );
+    } else {
+      setResumeHasDraft(false);
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -61,11 +124,26 @@ export default function DashboardPage() {
         return;
       }
       try {
-        const data = await apiFetch<DashboardOut>("/dashboard/me", { token });
+        let data = await apiFetch<DashboardOut>("/dashboard/me", { token });
         if (!data.user.is_profile_complete) {
           router.replace("/profile/setup");
           return;
         }
+
+        const stored =
+          typeof window !== "undefined"
+            ? sessionStorage.getItem(PRACTICE_PATH_KEY)
+            : null;
+        if (
+          stored &&
+          stored !== data.active_path_id &&
+          data.learning_paths.some((p) => p.id === stored)
+        ) {
+          await focusLearningPath(token, stored);
+          setPracticePathContext(stored);
+          data = await apiFetch<DashboardOut>("/dashboard/me", { token });
+        }
+
         applyDashboard(data);
       } catch {
         router.replace("/login");
@@ -74,21 +152,23 @@ export default function DashboardPage() {
       }
     }
 
-    function applyDashboard(data: DashboardOut) {
-      setProfile(data.user);
-      setRecentSubmissions(data.recent_submissions);
-      setPaths(data.learning_paths);
-      setSolvedCount(data.solved_count);
-      setLibraryTotal(data.library_total);
-      const selected =
-        data.learning_paths.find((p) => p.id === data.active_path_id) ??
-        pickActiveLearningPath(data.learning_paths);
-      setActivePath(selected);
-      setActivePathProblems(data.active_path_problems);
-    }
-
     load();
   }, [router]);
+
+  async function handlePathSwitch(pathId: string) {
+    const supabase = createClient();
+    const token = await getValidatedAccessToken(supabase);
+    if (!token) return;
+    setSwitchingPath(true);
+    try {
+      setPracticePathContext(pathId);
+      await focusLearningPath(token, pathId);
+      const data = await apiFetch<DashboardOut>("/dashboard/me", { token });
+      applyDashboard(data);
+    } finally {
+      setSwitchingPath(false);
+    }
+  }
 
   const recommendationSubtitle = useMemo(() => {
     if (!activePath) return undefined;
@@ -107,12 +187,21 @@ export default function DashboardPage() {
     if (activePathProblems[0] && activePath) {
       return `/practice/${activePathProblems[0].id}?path=${encodeURIComponent(activePath.id)}`;
     }
-    if (recentSubmissions[0]) return `/practice/${recentSubmissions[0].problem_id}`;
+    if (lastSession) {
+      const base = `/practice/${lastSession.problem_id}`;
+      return lastSession.path_id
+        ? `${base}?path=${encodeURIComponent(lastSession.path_id)}`
+        : base;
+    }
     return "/problems";
-  }, [activePath, activePathProblems, recentSubmissions]);
+  }, [activePath, activePathProblems, lastSession]);
 
   function handleContinueClick() {
-    if (activePath) setPracticePathContext(activePath.id);
+    if (!activePath) return;
+    const supabase = createClient();
+    void getValidatedAccessToken(supabase).then((token) => {
+      recordActiveLearningPath(activePath.id, token);
+    });
   }
 
   if (loading) {
@@ -152,7 +241,7 @@ export default function DashboardPage() {
                 <Link href={continueHref} onClick={handleContinueClick}>
                   <Button size="sm" className="gap-2 shadow-sm">
                     <Play className="size-3.5" />
-                    {recentSubmissions.length > 0 ? "Continue coding" : "Start practicing"}
+                    {hasAnySubmission ? "Continue coding" : "Start practicing"}
                     <ArrowRight className="size-3.5" />
                   </Button>
                 </Link>
@@ -193,21 +282,47 @@ export default function DashboardPage() {
             />
             <StatCard
               icon={<Route className="size-4 text-violet-500" />}
-              label="Paths"
-              value={`${paths.length}`}
-              hint="learning paths"
+              label="Paths started"
+              value={`${pathsStartedCount}`}
+              hint={`of ${paths.length} available`}
             />
           </div>
+
+          {weekStats && <DashboardWeekStats stats={weekStats} />}
+
+          {pathCompletion && <DashboardPathComplete completion={pathCompletion} />}
+
+          {suggestedPath && (
+            <DashboardSuggestedPath
+              suggested={suggestedPath}
+              onSelect={() => {
+                const supabase = createClient();
+                void getValidatedAccessToken(supabase).then((token) => {
+                  recordActiveLearningPath(suggestedPath.path_id, token);
+                });
+              }}
+            />
+          )}
 
           <DashboardGrid
             activePath={activePath}
             activePathProblems={activePathProblems}
             recommendationSubtitle={recommendationSubtitle}
             paths={paths}
-            recentSubmissions={recentSubmissions}
             continueHref={continueHref}
             handleContinueClick={handleContinueClick}
+            onPathSwitch={handlePathSwitch}
+            switchingPath={switchingPath}
             streak={streak}
+            usage={usage}
+            dailyGoal={dailyGoal}
+            dailyChallenge={dailyChallenge}
+            weakTopics={weakTopics}
+            bookmarks={bookmarks}
+            lastSession={lastSession}
+            resumeHasDraft={resumeHasDraft}
+            hasAnySubmission={hasAnySubmission}
+            pathsStartedCount={pathsStartedCount}
           />
         </div>
       </div>
@@ -234,23 +349,59 @@ function DashboardGrid({
   activePathProblems,
   recommendationSubtitle,
   paths,
-  recentSubmissions,
   continueHref,
   handleContinueClick,
+  onPathSwitch,
+  switchingPath,
   streak,
+  usage,
+  dailyGoal,
+  dailyChallenge,
+  weakTopics,
+  bookmarks,
+  lastSession,
+  resumeHasDraft,
+  hasAnySubmission,
+  pathsStartedCount,
 }: {
   activePath: LearningPathListItem | null;
   activePathProblems: LearningPathProblemItem[];
   recommendationSubtitle?: string;
   paths: LearningPathListItem[];
-  recentSubmissions: SubmissionHistoryItem[];
   continueHref: string;
   handleContinueClick: () => void;
+  onPathSwitch: (pathId: string) => void;
+  switchingPath: boolean;
   streak: number;
+  usage: UsageOut | null;
+  dailyGoal: DailyGoalOut | null;
+  dailyChallenge: DailyChallengeOut | null;
+  weakTopics: WeakTopicOut[];
+  bookmarks: BookmarkSummaryOut[];
+  lastSession: LastSessionOut | null;
+  resumeHasDraft: boolean;
+  hasAnySubmission: boolean;
+  pathsStartedCount: number;
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3 lg:gap-5">
       <div className="space-y-4 lg:col-span-2">
+        {lastSession && (
+          <DashboardResumeCard
+            session={lastSession}
+            hasLocalDraft={resumeHasDraft}
+            onResume={handleContinueClick}
+          />
+        )}
+
+        {dailyGoal && (
+          <DashboardDailySection
+            dailyGoal={dailyGoal}
+            dailyChallenge={dailyChallenge}
+            onPracticeClick={handleContinueClick}
+          />
+        )}
+
         {activePath && activePathProblems.length > 0 ? (
           <RecommendedSection
             activePath={activePath}
@@ -259,96 +410,48 @@ function DashboardGrid({
             allPaths={paths}
           />
         ) : (
-          <RecommendedEmpty />
+          <RecommendedEmpty pathsStartedCount={pathsStartedCount} hasAnySubmission={hasAnySubmission} />
         )}
 
-        <RecentActivitySection recentSubmissions={recentSubmissions} />
+        <DashboardWeakTopics topics={weakTopics} />
+        <DashboardBookmarks bookmarks={bookmarks} />
       </div>
 
       <SidebarColumn
         activePath={activePath}
         activePathProblems={activePathProblems}
+        paths={paths}
         continueHref={continueHref}
         handleContinueClick={handleContinueClick}
+        onPathSwitch={onPathSwitch}
+        switchingPath={switchingPath}
         streak={streak}
+        usage={usage}
       />
     </div>
-  );
-}
-
-function RecentActivitySection({
-  recentSubmissions,
-}: {
-  recentSubmissions: SubmissionHistoryItem[];
-}) {
-  return (
-    <section className="panel-card">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3 md:px-5">
-        <div className="flex items-center gap-2">
-          <TrendingUp className="size-4 text-primary" />
-          <h2 className="text-sm font-semibold">Recent activity</h2>
-        </div>
-        <Link
-          href="/progress"
-          className="text-xs font-medium text-primary hover:underline"
-        >
-          View progress →
-        </Link>
-      </div>
-      {recentSubmissions.length > 0 ? (
-        <ul className="divide-y divide-border/50 p-2 md:p-3">
-          {recentSubmissions.map((s) => (
-            <li key={s.id}>
-              <Link
-                href={`/practice/${s.problem_id}`}
-                className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-muted/50"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{s.problem_title}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {new Date(s.created_at).toLocaleDateString(undefined, {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                    {s.hints_used > 0 && ` · ${s.hints_used} hint${s.hints_used > 1 ? "s" : ""}`}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  {s.score !== null && (
-                    <span className="text-xs font-semibold tabular-nums text-primary">
-                      {Math.round(s.score * 100)}%
-                    </span>
-                  )}
-                  <Badge variant="secondary" className="text-[10px] capitalize">
-                    {s.language}
-                  </Badge>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="px-5 py-8 text-center text-sm text-muted-foreground">
-          No submissions yet — your first solve will show up here.
-        </p>
-      )}
-    </section>
   );
 }
 
 function SidebarColumn({
   activePath,
   activePathProblems,
+  paths,
   continueHref,
   handleContinueClick,
+  onPathSwitch,
+  switchingPath,
   streak,
+  usage,
 }: {
   activePath: LearningPathListItem | null;
   activePathProblems: LearningPathProblemItem[];
+  paths: LearningPathListItem[];
   continueHref: string;
   handleContinueClick: () => void;
+  onPathSwitch: (pathId: string) => void;
+  switchingPath: boolean;
   streak: number;
+  usage: UsageOut | null;
 }) {
   const pathSolved = activePathProblems.filter((p) => p.solved).length;
   const pathTotal = activePathProblems.length;
@@ -383,9 +486,12 @@ function SidebarColumn({
               <Route className="size-4 shrink-0 text-primary" />
               <h2 className="text-sm font-semibold">Active path</h2>
             </div>
-            <Link href="/learn" className="text-xs font-medium text-primary hover:underline">
-              Switch
-            </Link>
+            <ActivePathSwitcher
+              paths={paths}
+              activePathId={activePath.id}
+              onSelect={onPathSwitch}
+              disabled={switchingPath}
+            />
           </div>
           <p className="mt-1.5 text-xs font-medium text-foreground">{activePath.title}</p>
 
@@ -421,6 +527,8 @@ function SidebarColumn({
           )}
         </section>
       )}
+
+      {usage && <DashboardAiUsage usage={usage} />}
 
       <section className="panel-card p-4 md:p-5">
         <h2 className="text-sm font-semibold">Quick links</h2>

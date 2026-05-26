@@ -52,4 +52,7 @@ class UsageEvent(Base):
     tokens_used: Mapped[int] = mapped_column(Integer, default=0)
     prompt_name: Mapped[str | None] = mapped_column(String, nullable=True)
     cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    problem_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())

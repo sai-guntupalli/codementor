@@ -51,6 +51,9 @@ class ProblemPublicOut(BaseModel):
     sort_order: int | None
     is_published: bool
     created_at: datetime
+    starter_code: str | None = None
+    entry_function: str | None = None
+    test_call: str | None = None
 
     model_config = {"from_attributes": True}
 

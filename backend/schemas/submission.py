@@ -46,3 +46,25 @@ class SubmissionHistoryItem(BaseModel):
 
 class SolvedProblemIdsOut(BaseModel):
     solved_ids: list[uuid.UUID]
+
+
+class TestCaseResultOut(BaseModel):
+    index: int
+    input: str
+    expected: str
+    actual: str
+    stderr: str
+    passed: bool
+    timed_out: bool
+    exit_code: int | None
+
+
+class SubmissionVerifyOut(BaseModel):
+    submission_id: uuid.UUID
+    passed_count: int
+    total_count: int
+    all_passed: bool
+    score: float
+    xp_earned: int
+    results: list[TestCaseResultOut]
+    summary: str

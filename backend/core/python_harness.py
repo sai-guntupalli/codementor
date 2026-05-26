@@ -6,21 +6,11 @@ import ast
 import base64
 import re
 
-_DEF_RE = re.compile(r"^def\s+([a-zA-Z_][\w]*)\s*\(", re.MULTILINE)
-_SKIP_NAMES = frozenset({"main", "test", "run", "setup", "teardown"})
-
-
-def guess_entry_function(code: str) -> str | None:
-    """Pick the most likely user function to call (last top-level public def)."""
-    names = []
-    for match in _DEF_RE.finditer(code):
-        name = match.group(1)
-        if name.startswith("_") or name in _SKIP_NAMES:
-            continue
-        names.append(name)
-    if not names:
-        return None
-    return names[-1]
+from core.function_fixture import (
+    build_call_from_assignment_fixture,
+    guess_entry_function,
+    stdin_looks_like_assignment_fixture,
+)
 
 
 def stdin_looks_like_literal(stdin: str) -> bool:
@@ -37,13 +27,33 @@ def stdin_looks_like_literal(stdin: str) -> bool:
         return False
 
 
+def stdin_looks_like_function_call(stdin: str) -> bool:
+    """Example input like delete_person([1, 2], 'x') from problem statements."""
+    raw = stdin.strip()
+    if not raw or raw == "(none)":
+        return False
+    try:
+        tree = ast.parse(raw, mode="eval")
+    except SyntaxError:
+        return False
+    expr = tree.body
+    return isinstance(expr, ast.Call) and isinstance(expr.func, ast.Name)
+
+
 def should_use_function_harness(code: str, stdin: str) -> bool:
     """Use harness when the user defined a function but did not read stdin themselves."""
     if "input(" in code:
         return False
     if guess_entry_function(code) is None:
         return False
-    return stdin_looks_like_literal(stdin)
+    return (
+        stdin_looks_like_literal(stdin)
+        or stdin_looks_like_function_call(stdin)
+        or (
+            stdin_looks_like_assignment_fixture(stdin)
+            and guess_entry_function(code) is not None
+        )
+    )
 
 
 def wrap_python_function_harness(
@@ -60,11 +70,45 @@ def wrap_python_function_harness(
     if not should_use_function_harness(code, stdin):
         return None
 
+    raw = stdin.strip()
+
+    if stdin_looks_like_assignment_fixture(raw):
+        fn = entry_function or guess_entry_function(code)
+        if fn:
+            call = build_call_from_assignment_fixture(raw, code, fn)
+            if call:
+                call_b64 = base64.b64encode(call.encode("utf-8")).decode("ascii")
+                driver = f'''
+
+# --- CodeMentor harness: run the example function call ---
+import base64 as __cm_b64
+
+__cm_call = __cm_b64.b64decode("{call_b64}").decode("utf-8")
+__cm_result = eval(__cm_call)
+if __cm_result is not None:
+    print(__cm_result)
+'''
+                return code.rstrip() + driver
+
+    if stdin_looks_like_function_call(raw):
+        call_b64 = base64.b64encode(raw.encode("utf-8")).decode("ascii")
+        driver = f'''
+
+# --- CodeMentor harness: run the example function call ---
+import base64 as __cm_b64
+
+__cm_call = __cm_b64.b64decode("{call_b64}").decode("utf-8")
+__cm_result = eval(__cm_call)
+if __cm_result is not None:
+    print(__cm_result)
+'''
+        return code.rstrip() + driver
+
     fn = entry_function or guess_entry_function(code)
     if not fn:
         return None
 
-    stdin_b64 = base64.b64encode(stdin.strip().encode("utf-8")).decode("ascii")
+    stdin_b64 = base64.b64encode(raw.encode("utf-8")).decode("ascii")
 
     driver = f'''
 
