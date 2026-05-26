@@ -1,3 +1,16 @@
+function formatApiError(detail: unknown, status: number): string {
+  if (typeof detail === "string") return detail;
+  if (detail && typeof detail === "object") {
+    const obj = detail as Record<string, unknown>;
+    if (typeof obj.message === "string") return obj.message;
+    if (status === 429 && typeof obj.calls_limit === "number") {
+      const used = obj.calls_used ?? obj.calls_limit;
+      return `You've reached your ${obj.calls_limit}-call monthly limit (${used} used).`;
+    }
+  }
+  return "Request failed";
+}
+
 export type SSEHandlers = {
   onToken?: (token: string) => void;
   onDone?: (payload: Record<string, unknown>) => void;
@@ -11,7 +24,7 @@ export async function consumeSSE(
 ): Promise<void> {
   if (!response.ok) {
     const err = await response.json().catch(() => ({ detail: response.statusText }));
-    handlers.onError?.(typeof err.detail === "string" ? err.detail : "Request failed");
+    handlers.onError?.(formatApiError(err.detail, response.status));
     return;
   }
 

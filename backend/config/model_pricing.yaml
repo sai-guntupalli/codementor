@@ -1,0 +1,16 @@
+# USD per 1 000 tokens (input / output)
+anthropic/claude-sonnet-4-5:
+  input:  0.003
+  output: 0.015
+openai/gpt-4o:
+  input:  0.005
+  output: 0.015
+google/gemini-2.0-flash:
+  input:  0.00035
+  output: 0.00105
+meta-llama/llama-3.3-70b:
+  input:  0.00059
+  output: 0.00079
+_default:
+  input:  0.003
+  output: 0.015

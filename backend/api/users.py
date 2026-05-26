@@ -1,3 +1,4 @@
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -5,12 +6,16 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from core.deps import get_current_user
+from core.entitlements import has_ai_submit_review
+from llm.usage_stats import get_user_usage
+from schemas.usage import UsageOut
 from core.learning_path import (
     EXPERIENCE_MESSAGES,
     ensure_personalized_path,
     personalized_path_response,
     regenerate_personalized_path,
 )
+from core.dashboard_insights import record_last_practice
 from core.streak import maybe_backfill_streak
 from db.session import get_db
 from models.users import User
@@ -23,6 +28,11 @@ class SkillsOut(BaseModel):
     streak_days: int
 
 
+class PracticeSessionBody(BaseModel):
+    problem_id: uuid.UUID
+    path_id: uuid.UUID | None = None
+
+
 router = APIRouter(prefix="/users", tags=["users"])
 
 
@@ -33,7 +43,18 @@ def get_me(
 ) -> UserOut:
     maybe_backfill_streak(current_user, db)
     db.refresh(current_user)
-    return current_user
+    base = UserOut.model_validate(current_user)
+    return base.model_copy(
+        update={"ai_submit_review": has_ai_submit_review(current_user, db)}
+    )
+
+
+@router.get("/me/usage", response_model=UsageOut)
+def get_my_usage(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> UsageOut:
+    return get_user_usage(db, current_user)
 
 
 @router.get("/me/skills", response_model=SkillsOut)
@@ -66,6 +87,21 @@ def get_learning_path(
         next_problems=[LearningPathProblem.model_validate(p) for p in next_problems],
         library_total=library_total,
         difficulties=difficulties,
+    )
+
+
+@router.post("/me/practice-session", status_code=status.HTTP_204_NO_CONTENT)
+def record_practice_session(
+    body: PracticeSessionBody,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> None:
+    """Track last opened problem for dashboard resume."""
+    record_last_practice(
+        db,
+        current_user,
+        problem_id=body.problem_id,
+        path_id=body.path_id,
     )
 
 

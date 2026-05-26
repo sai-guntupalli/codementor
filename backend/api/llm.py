@@ -1,6 +1,7 @@
 """LLM streaming endpoints (OpenRouter SSE passthrough)."""
 
 import json
+from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -9,10 +10,10 @@ from sqlalchemy.orm import Session
 
 from core.deps import get_current_user
 from db.session import get_db
-from llm.openrouter import stream_chat
-from llm.registry import load_and_render
+from llm.quota import QuotaStatus, require_quota
+from llm.registry import load_and_render, prompt_max_tokens
 from llm.router import resolve_model
-from llm.usage import log_usage_event
+from llm.streaming import log_stream_usage, sse_response, stream_llm_to_sse
 from models.users import User
 from schemas.llm import LLMStreamRequest
 
@@ -24,6 +25,7 @@ async def stream_llm(
     body: LLMStreamRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
+    quota_status: Annotated[QuotaStatus, Depends(require_quota)],
 ) -> StreamingResponse:
     """
     LLM-01/03: Render a DB prompt and stream the OpenRouter response as SSE.
@@ -31,54 +33,41 @@ async def stream_llm(
     """
     rendered = load_and_render(db, body.prompt_name, body.variables)
     model = resolve_model(db, current_user, body.model)
+    max_tokens = prompt_max_tokens(db, body.prompt_name)
     messages = [{"role": "user", "content": rendered}]
 
-    async def event_generator():
+    async def event_generator() -> AsyncIterator[str]:
         total_tokens = 0
-        usage_meta: dict | None = None
+        cost = 0.0
+        input_tokens = 0
+        output_tokens = 0
 
-        async for token, usage in stream_chat(model=model, messages=messages):
-            if usage is not None:
-                usage_meta = usage
-                continue
-            if token:
-                total_tokens += max(1, len(token.split()))
-                yield f"data: {json.dumps({'token': token})}\n\n"
+        async for line in stream_llm_to_sse(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+            quota_status=quota_status,
+            on_complete=lambda _text, _usage: {"prompt_name": body.prompt_name},
+        ):
+            if line.startswith("data: "):
+                payload = json.loads(line[6:].strip())
+                if payload.get("type") == "done":
+                    total_tokens = int(payload.get("tokens_used", 0))
+                    cost = float(payload.get("cost_usd", 0.0))
+                    input_tokens = int(payload.get("input_tokens", 0))
+                    output_tokens = int(payload.get("output_tokens", 0))
+            yield line
 
-        if usage_meta:
-            total_tokens = int(
-                usage_meta.get("total_tokens")
-                or usage_meta.get("completion_tokens")
-                or total_tokens
-            )
-            cost = float(usage_meta.get("cost") or 0.0)
-        else:
-            cost = 0.0
-
-        log_usage_event(
+        log_stream_usage(
             db,
             user=current_user,
             event_type="llm_stream",
             prompt_name=body.prompt_name,
-            llm_model=model,
+            model=model,
             tokens_used=total_tokens,
             cost_usd=cost,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
         )
 
-        done = {
-            "type": "done",
-            "model": model,
-            "prompt_name": body.prompt_name,
-            "tokens_used": total_tokens,
-        }
-        yield f"data: {json.dumps(done)}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
+    return sse_response(event_generator())

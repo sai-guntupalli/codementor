@@ -30,16 +30,19 @@ async def stream_chat(
     *,
     model: str,
     messages: list[dict[str, str]],
+    max_tokens: int | None = None,
 ) -> AsyncIterator[tuple[str, dict[str, Any] | None]]:
     """
     Yield (token_text, usage_dict) tuples.
     Final yield has empty token and usage dict from OpenRouter (if present).
     """
-    payload = {
+    payload: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "stream": True,
     }
+    if max_tokens is not None:
+        payload["max_tokens"] = max_tokens
 
     async with httpx.AsyncClient(timeout=120.0) as client:
         async with client.stream(

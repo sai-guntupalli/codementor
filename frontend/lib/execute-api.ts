@@ -60,11 +60,31 @@ export function normalizeStdin(raw: string): string {
   return s;
 }
 
-/** True when example input is literal stdin for a script (not a REPL snippet or random fixture). */
+/** True when example input is a function call like delete_person([1, 2], "x"). */
+export function looksLikeFunctionCallExample(input: string): boolean {
+  const t = input.trim();
+  const match = /^([a-z_]\w*)\s*\(([\s\S]*)\)\s*$/i.exec(t);
+  return Boolean(match);
+}
+
+/** LeetCode-style: list1 = [1, 2]\nlist2 = [3, 4] */
+export function looksLikeAssignmentFixture(input: string): boolean {
+  const lines = input
+    .trim()
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (!lines.length) return false;
+  return lines.every((line) => /^[a-z_]\w*\s*=\s*.+$/i.test(line));
+}
+
+/** True when example can be run (stdin script, literal arg, or function-call fixture). */
 export function isRunnableExample(input: string): boolean {
   const t = input.trim();
   if (t === "" || t === "(none)" || /see description/i.test(t)) return false;
-  // Function calls, assignments, and multiline programs are not stdin test cases.
+  if (looksLikeFunctionCallExample(t)) return true;
+  if (looksLikeAssignmentFixture(t)) return true;
+  // Other parenthesized snippets (assignments, multiline) are not auto-runnable.
   if (/\w\s*\(/.test(t)) return false;
   if (/^[a-z_][\w]*\s*=/i.test(t)) return false;
   if (/^(def|class|import|from)\b/m.test(t)) return false;

@@ -12,19 +12,21 @@ import {
   FileText,
   ListTodo,
   PanelLeftClose,
-  Play,
   RotateCcw,
   Sparkles,
   Terminal,
 } from "lucide-react";
 import { AppHeader } from "@/components/layout/app-header";
+import { AppShell } from "@/components/layout/app-shell";
+import { NotFoundView } from "@/components/layout/not-found-view";
+import { PracticeHeader } from "@/components/practice/practice-header";
+import { NextProblemButton } from "@/components/practice/next-problem-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getStarterCode } from "@/lib/starter-code";
-import { difficultyBadgeVariant } from "@/lib/tags";
 import { CodeEditor } from "@/components/editor/code-editor";
 import { AiPanel, type AiTab } from "@/components/practice/ai-panel";
-import { NextProblemButton } from "@/components/practice/next-problem-button";
+import { EditorToolbarActions } from "@/components/practice/editor-toolbar-actions";
 import { SolvedBanner } from "@/components/practice/solved-banner";
 import { HintPopover } from "@/components/practice/hint-popover";
 import { PracticePanel } from "@/components/practice/practice-panel";
@@ -38,6 +40,8 @@ import {
   type LearningPathProblemItem,
   type SolvedProblemIdsOut,
   type SubmissionOut,
+  type UsageOut,
+  type UserOut,
 } from "@/lib/api";
 import { pickActiveLearningPath } from "@/lib/learning-path-utils";
 import {
@@ -46,6 +50,7 @@ import {
   streamHint,
   streamReview,
   streamSolution,
+  verifySubmission,
 } from "@/lib/practice-api";
 import {
   isRunnableExample,
@@ -56,7 +61,11 @@ import {
   type TestCaseResult,
 } from "@/lib/execute-api";
 import { cn } from "@/lib/utils";
-import { resolvePracticePathId } from "@/lib/learning-path-context";
+import {
+  recordActiveLearningPath,
+  recordPracticeActivity,
+  resolvePracticePathId,
+} from "@/lib/learning-path-context";
 import { getCached, setCached } from "@/lib/api-cache";
 
 type Example = {
@@ -73,6 +82,9 @@ type Problem = {
   difficulty: string;
   examples: Example[];
   constraints: string | null;
+  starter_code?: string | null;
+  entry_function?: string | null;
+  test_call?: string | null;
 };
 
 type ProblemListItem = {
@@ -143,8 +155,14 @@ export default function PracticePage() {
   const [submissionScore, setSubmissionScore] = useState<number | null>(null);
   const [learningPath, setLearningPath] = useState<LearningPathProblem[]>([]);
   const [previousSubmission, setPreviousSubmission] = useState<SubmissionOut | null>(null);
+  const [usage, setUsage] = useState<UsageOut | null>(null);
+  const [quotaToast, setQuotaToast] = useState<string | null>(null);
+  const [aiSubmitReview, setAiSubmitReview] = useState(false);
 
   const tokenRef = useRef<string | null>(null);
+
+  const quotaExhausted =
+    usage !== null && usage.calls_limit > 0 && usage.calls_used >= usage.calls_limit;
 
   const getToken = useCallback(async () => {
     const supabase = createClient();
@@ -156,6 +174,31 @@ export default function PracticePage() {
     return token;
   }, [router]);
 
+  const refreshUsage = useCallback(async () => {
+    const token = tokenRef.current ?? (await getToken());
+    if (!token) return;
+    try {
+      const data = await apiFetch<UsageOut>("/users/me/usage", { token });
+      setUsage(data);
+    } catch {
+      // non-fatal
+    }
+  }, [getToken]);
+
+  const handleStreamDone = useCallback(
+    (payload: Record<string, unknown>) => {
+      if (payload.quota_warning === true) {
+        const key = "cm_quota_warn_shown";
+        if (typeof sessionStorage !== "undefined" && !sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, "1");
+          setQuotaToast("You've used 80% of your monthly AI calls.");
+        }
+      }
+      void refreshUsage();
+    },
+    [refreshUsage]
+  );
+
   useEffect(() => {
     async function load() {
       const token = await getToken();
@@ -164,6 +207,8 @@ export default function PracticePage() {
       try {
         const pathId = await resolvePracticePathId(token, id, pathFromUrl);
         setResolvedPathId(pathId);
+        if (pathId) recordActiveLearningPath(pathId, token, id);
+        else recordPracticeActivity(id, token);
 
         const fetchPathProblems = async (pid: string): Promise<LearningPathProblemItem[]> => {
           const k = `learning-paths/${pid}/problems`;
@@ -207,14 +252,18 @@ export default function PracticePage() {
               () => ({ items: [] as ProblemListItem[] })
             );
 
-        const [p, list, solved, path] = await Promise.all([
+        const [p, list, solved, path, usageData, me] = await Promise.all([
           apiFetch<Problem>(`/problems/${id}`, { token }),
           listFetch,
           apiFetch<SolvedProblemIdsOut>("/submissions/me/problem-ids", { token }).catch(
             () => ({ solved_ids: [] as string[] })
           ),
           pathFetch,
+          apiFetch<UsageOut>("/users/me/usage", { token }).catch(() => null),
+          apiFetch<UserOut>("/users/me", { token }).catch(() => null),
         ]);
+        if (usageData) setUsage(usageData);
+        setAiSubmitReview(me?.ai_submit_review ?? false);
         setProblem(p);
         setProblemList(list.items);
         setSolvedIds(new Set(solved.solved_ids));
@@ -251,7 +300,15 @@ export default function PracticePage() {
             setSubmissionScore(latest.score);
           }
         } else {
-          setCode(draft ?? getStarterCode(p.language));
+          setCode(
+            draft ??
+              p.starter_code ??
+              getStarterCode(p.language, {
+                examples: p.examples,
+                description: p.description,
+                constraints: p.constraints,
+              })
+          );
           setReview("");
           setReviewComplete(false);
           setSubmissionScore(null);
@@ -299,7 +356,13 @@ export default function PracticePage() {
 
   function handleResetCode() {
     if (!problem) return;
-    const starter = getStarterCode(problem.language);
+    const starter =
+      problem.starter_code ??
+      getStarterCode(problem.language, {
+        examples: problem.examples,
+        description: problem.description,
+        constraints: problem.constraints,
+      });
     if (code !== starter && !window.confirm("Reset editor to starter code? Your current draft will be lost.")) {
       return;
     }
@@ -419,8 +482,18 @@ export default function PracticePage() {
 
   const isReviewing = streaming && activeTab === "review";
 
+  useEffect(() => {
+    if (!quotaToast) return;
+    const t = setTimeout(() => setQuotaToast(null), 8000);
+    return () => clearTimeout(t);
+  }, [quotaToast]);
+
   async function handleSubmit() {
     if (!problem || isReviewing) return;
+    if (aiSubmitReview && quotaExhausted) {
+      setError("Monthly AI call limit reached. See Settings for usage.");
+      return;
+    }
     setError(null);
     setStreaming(true);
     setReview("");
@@ -429,6 +502,7 @@ export default function PracticePage() {
     setSubmissionScore(null);
     openAiPanel();
     setActiveTab("review");
+    setOutputOpen(true);
 
     const token = tokenRef.current ?? await getToken();
     if (!token) {
@@ -448,29 +522,51 @@ export default function PracticePage() {
       });
       setPreviousSubmission(submission);
 
-      let reviewText = "";
-      await streamReview(submission.id, token, {
-        onToken: (t) => {
-          reviewText += t;
-          setReview((prev) => prev + t);
-        },
-        onDone: (payload) => {
-          const xp = payload.xp_earned;
-          if (typeof xp === "number" && xp > 0) setXpEarned(xp);
-          const score = payload.score;
-          if (typeof score === "number") setSubmissionScore(score);
-          setReviewComplete(true);
+      if (aiSubmitReview) {
+        let reviewText = "";
+        await streamReview(submission.id, token, {
+          onToken: (t) => {
+            reviewText += t;
+            setReview((prev) => prev + t);
+          },
+          onDone: (payload) => {
+            handleStreamDone(payload);
+            const xp = payload.xp_earned;
+            if (typeof xp === "number" && xp > 0) setXpEarned(xp);
+            const score = payload.score;
+            if (typeof score === "number") setSubmissionScore(score);
+            setReviewComplete(true);
+            if (typeof score === "number" && score >= 0.9) {
+              setSolvedIds((prev) => new Set([...prev, problem.id]));
+            }
+            setPreviousSubmission({
+              ...submission,
+              code,
+              llm_review: reviewText,
+              score: typeof score === "number" ? score : submission.score,
+            });
+            if (id) localStorage.removeItem(`cm_code_${id}`);
+          },
+          onError: (msg) => setError(msg),
+        });
+      } else {
+        const verified = await verifySubmission(submission.id, token);
+        setReview(verified.summary);
+        setTestResults(verified.results);
+        setSubmissionScore(verified.score);
+        if (verified.xp_earned > 0) setXpEarned(verified.xp_earned);
+        setReviewComplete(verified.all_passed || verified.score >= 0.9);
+        if (verified.all_passed || verified.score >= 0.9) {
           setSolvedIds((prev) => new Set([...prev, problem.id]));
-          setPreviousSubmission({
-            ...submission,
-            code,
-            llm_review: reviewText,
-            score: typeof score === "number" ? score : submission.score,
-          });
-          if (id) localStorage.removeItem(`cm_code_${id}`);
-        },
-        onError: (msg) => setError(msg),
-      });
+        }
+        setPreviousSubmission({
+          ...submission,
+          code,
+          llm_review: verified.summary,
+          score: verified.score,
+        });
+        if (id) localStorage.removeItem(`cm_code_${id}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Submit failed");
     } finally {
@@ -480,6 +576,10 @@ export default function PracticePage() {
 
   async function handleHint(n: number) {
     if (!problem || hintCount >= n) return;
+    if (quotaExhausted) {
+      setError("Monthly AI call limit reached. See Settings for usage.");
+      return;
+    }
     const token = tokenRef.current ?? await getToken();
     if (!token) return;
 
@@ -499,6 +599,7 @@ export default function PracticePage() {
             return next;
           });
         },
+        onDone: handleStreamDone,
         onError: (msg) => setError(msg),
       });
       setHintCount(n);
@@ -511,6 +612,10 @@ export default function PracticePage() {
 
   async function handleSolution() {
     if (!problem) return;
+    if (quotaExhausted) {
+      setError("Monthly AI call limit reached. See Settings for usage.");
+      return;
+    }
     const token = tokenRef.current ?? await getToken();
     if (!token) return;
 
@@ -522,6 +627,7 @@ export default function PracticePage() {
     try {
       await streamSolution(problem.id, token, solutionLevel, {
         onToken: (t) => setSolution((prev) => prev + t),
+        onDone: handleStreamDone,
         onError: (msg) => setError(msg),
       });
     } catch (err) {
@@ -533,6 +639,10 @@ export default function PracticePage() {
 
   async function handleCodeReview() {
     if (!problem) return;
+    if (quotaExhausted) {
+      setError("Monthly AI call limit reached. See Settings for usage.");
+      return;
+    }
     const token = tokenRef.current ?? await getToken();
     if (!token) return;
 
@@ -544,6 +654,7 @@ export default function PracticePage() {
     try {
       await streamCodeReview(problem.id, token, code, {
         onToken: (t) => setCodeReview((prev) => prev + t),
+        onDone: handleStreamDone,
         onError: (msg) => setError(msg),
       });
     } catch (err) {
@@ -555,6 +666,10 @@ export default function PracticePage() {
 
   async function handleChat() {
     if (!problem || !chatInput.trim()) return;
+    if (quotaExhausted) {
+      setError("Monthly AI call limit reached. See Settings for usage.");
+      return;
+    }
     const token = tokenRef.current ?? await getToken();
     if (!token) return;
 
@@ -579,6 +694,7 @@ export default function PracticePage() {
             return next;
           });
         },
+        onDone: handleStreamDone,
         onError: (msg) => setError(msg),
       });
     } catch (err) {
@@ -647,101 +763,68 @@ export default function PracticePage() {
   }
 
   if (!problem) {
+    const isNotFound = !error || /not found/i.test(error);
+    if (isNotFound) {
+      return (
+        <AppShell>
+          <NotFoundView variant="problem" />
+        </AppShell>
+      );
+    }
     return (
-      <main className="mx-auto max-w-3xl px-6 py-12">
-        <p className="text-destructive">{error ?? "Problem not found"}</p>
-        <Link href="/problems" className="mt-4 inline-block text-sm text-primary">
-          ← Back to problems
-        </Link>
-      </main>
+      <AppShell>
+        <div className="mx-auto max-w-lg px-6 py-16 text-center">
+          <p className="text-sm text-destructive">{error}</p>
+          <Link href="/problems" className="mt-4 inline-block text-sm font-medium text-primary">
+            ← Back to problems
+          </Link>
+        </div>
+      </AppShell>
     );
   }
 
+  const canRunPython = problem.language === "python";
+  const submitDisabled =
+    isReviewing ||
+    (aiSubmitReview && quotaExhausted) ||
+    (!aiSubmitReview && !canRunPython);
+  const submitTitle = aiSubmitReview
+    ? reviewComplete
+      ? "Submit your updated code for another AI review"
+      : "Submit for AI review (⌘/Ctrl+Shift+Enter)"
+    : !canRunPython
+      ? "Automatic verify is only available for Python"
+      : reviewComplete
+        ? "Run tests again on your latest code"
+        : "Check output against examples (⌘/Ctrl+Shift+Enter)";
+
   return (
     <main className="workspace-canvas flex h-screen flex-col">
-      <AppHeader
-        className="z-10"
-        crumbs={[{ label: "Problems", href: "/problems" }]}
+      <PracticeHeader
         title={problem.title}
-        meta={
-          <span className="ml-1 flex items-center gap-1.5">
-            <Badge variant="secondary" className="capitalize">
-              {problem.language}
-            </Badge>
-            <Badge variant={difficultyBadgeVariant(problem.difficulty)} className="capitalize">
-              {problem.difficulty}
-            </Badge>
-            {draftRestored && (
-              <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
-                Draft restored
-              </span>
-            )}
-          </span>
-        }
+        language={problem.language}
+        difficulty={problem.difficulty}
+        draftRestored={draftRestored}
+        usage={usage}
+        showAiUsage={aiSubmitReview && usage !== null}
         actions={
           <>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={running || streaming || problem.language !== "python"}
-              onClick={handleRun}
-              title={
-                problem.language !== "python"
-                  ? "Run is only available for Python"
-                  : "Run tests (⌘/Ctrl+Enter)"
-              }
-            >
-              {running ? (
-                <>
-                  <span className="mr-1.5 size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Running…
-                </>
-              ) : (
-                <>
-                  <Play className="mr-1.5 size-3.5" />
-                  Run
-                </>
-              )}
-            </Button>
-            <Button
-              size="sm"
-              variant={reviewComplete ? "outline" : "default"}
-              disabled={isReviewing}
-              onClick={handleSubmit}
-              title={
-                reviewComplete
-                  ? "Submit your updated code for another AI review"
-                  : "Submit for AI review (⌘/Ctrl+Shift+Enter)"
-              }
-              className={cn(!reviewComplete && "shadow-sm")}
-            >
-              {isReviewing
-                ? "Reviewing…"
-                : reviewComplete
-                  ? submissionPassed
-                    ? "Submit again"
-                    : "Resubmit"
-                  : "Submit code"}
-            </Button>
-            <Button
-              size="sm"
-              variant={aiPanelOpen ? "secondary" : "outline"}
-              onClick={toggleAiPanel}
-            >
-              <Sparkles className="mr-1.5 size-3.5" />
-              {aiPanelOpen ? "Hide AI" : "AI"}
-            </Button>
             {showSkip && (
               <NextProblemButton
                 next={nextProblem}
                 pathId={resolvedPathId}
                 variant="outline"
                 label="Skip"
+                className="hidden h-8 md:inline-flex"
                 title="Next problem without submitting"
               />
             )}
             {showNextProblem && (
-              <NextProblemButton next={nextProblem} pathId={resolvedPathId} />
+              <NextProblemButton
+                next={nextProblem}
+                pathId={resolvedPathId}
+                className="h-8"
+              />
             )}
           </>
         }
@@ -787,7 +870,19 @@ export default function PracticePage() {
               code={code}
               onCodeChange={setCode}
               onReset={handleResetCode}
-              canRun={problem.language === "python"}
+              onRun={handleRun}
+              onSubmit={handleSubmit}
+              canRun={canRunPython}
+              running={running}
+              streaming={streaming}
+              isReviewing={isReviewing}
+              submitDisabled={submitDisabled}
+              submitTitle={submitTitle}
+              reviewComplete={reviewComplete}
+              submissionPassed={submissionPassed}
+              aiSubmitReview={aiSubmitReview}
+              aiPanelOpen={aiPanelOpen}
+              onToggleAiPanel={toggleAiPanel}
               hints={hints}
               hintCount={hintCount}
               hintLoading={streaming}
@@ -798,7 +893,6 @@ export default function PracticePage() {
               runStdin={runStdin}
               onRunStdinChange={setRunStdin}
               onRunWithStdin={handleRunWithStdin}
-              running={running}
               onOutputClose={() => setOutputOpen(false)}
               previousSubmission={previousSubmission}
               showSolvedBanner={showSolvedBanner}
@@ -830,6 +924,7 @@ export default function PracticePage() {
                 onRequestCodeReview={handleCodeReview}
                 onSendChat={handleChat}
                 reviewComplete={reviewComplete}
+                quotaExhausted={quotaExhausted}
                 onClose={() => setAiPanelOpen(false)}
               />
             </PracticePanel>
@@ -877,7 +972,19 @@ export default function PracticePage() {
               code={code}
               onCodeChange={setCode}
               onReset={handleResetCode}
-              canRun={problem.language === "python"}
+              onRun={handleRun}
+              onSubmit={handleSubmit}
+              canRun={canRunPython}
+              running={running}
+              streaming={streaming}
+              isReviewing={isReviewing}
+              submitDisabled={submitDisabled}
+              submitTitle={submitTitle}
+              reviewComplete={reviewComplete}
+              submissionPassed={submissionPassed}
+              aiSubmitReview={aiSubmitReview}
+              aiPanelOpen={aiPanelOpen}
+              onToggleAiPanel={toggleAiPanel}
               hints={hints}
               hintCount={hintCount}
               hintLoading={streaming}
@@ -888,7 +995,6 @@ export default function PracticePage() {
               runStdin={runStdin}
               onRunStdinChange={setRunStdin}
               onRunWithStdin={handleRunWithStdin}
-              running={running}
               onOutputClose={() => setOutputOpen(false)}
               previousSubmission={previousSubmission}
               showSolvedBanner={showSolvedBanner}
@@ -920,12 +1026,24 @@ export default function PracticePage() {
                 onRequestCodeReview={handleCodeReview}
                 onSendChat={handleChat}
                 reviewComplete={reviewComplete}
+                quotaExhausted={quotaExhausted}
                 onClose={() => setAiPanelOpen(false)}
               />
             </PracticePanel>
           )}
         </div>
       </div>
+
+      {quotaToast && (
+        <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2 px-4">
+          <div className="pointer-events-auto flex max-w-md items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-card px-4 py-3 text-sm shadow-lg">
+            <span>{quotaToast}</span>
+            <Link href="/settings" className="shrink-0 font-medium text-primary hover:underline">
+              Upgrade to Pro →
+            </Link>
+          </div>
+        </div>
+      )}
 
     </main>
   );
@@ -1052,34 +1170,24 @@ function DescriptionPanel({
   );
 }
 
-function EditorColumn({
-  problem,
-  code,
-  onCodeChange,
-  onReset,
-  canRun,
-  hints,
-  hintCount,
-  hintLoading,
-  onRequestHint,
-  outputOpen,
-  testResults,
-  runOnceResult,
-  runStdin,
-  onRunStdinChange,
-  onRunWithStdin,
-  running,
-  onOutputClose,
-  previousSubmission,
-  showSolvedBanner,
-  showRestoreSubmission,
-  onRestoreSubmission,
-}: {
+type EditorColumnProps = {
   problem: { language: string };
   code: string;
   onCodeChange: (v: string) => void;
   onReset: () => void;
+  onRun: () => void;
+  onSubmit: () => void;
   canRun: boolean;
+  running: boolean;
+  streaming: boolean;
+  isReviewing: boolean;
+  submitDisabled: boolean;
+  submitTitle: string;
+  reviewComplete: boolean;
+  submissionPassed: boolean;
+  aiSubmitReview: boolean;
+  aiPanelOpen: boolean;
+  onToggleAiPanel: () => void;
   hints: string[];
   hintCount: number;
   hintLoading: boolean;
@@ -1090,15 +1198,47 @@ function EditorColumn({
   runStdin: string;
   onRunStdinChange: (v: string) => void;
   onRunWithStdin: () => void;
-  running: boolean;
   onOutputClose: () => void;
   previousSubmission?: SubmissionOut | null;
   showSolvedBanner?: boolean;
   showRestoreSubmission?: boolean;
   onRestoreSubmission?: () => void;
-}) {
-  const lineCount = code.split("\n").length;
+};
 
+function EditorColumn({
+  problem,
+  code,
+  onCodeChange,
+  onReset,
+  onRun,
+  onSubmit,
+  canRun,
+  running,
+  streaming,
+  isReviewing,
+  submitDisabled,
+  submitTitle,
+  reviewComplete,
+  submissionPassed,
+  aiSubmitReview,
+  aiPanelOpen,
+  onToggleAiPanel,
+  hints,
+  hintCount,
+  hintLoading,
+  onRequestHint,
+  outputOpen,
+  testResults,
+  runOnceResult,
+  runStdin,
+  onRunStdinChange,
+  onRunWithStdin,
+  onOutputClose,
+  previousSubmission,
+  showSolvedBanner,
+  showRestoreSubmission,
+  onRestoreSubmission,
+}: EditorColumnProps) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {showSolvedBanner && previousSubmission && (
@@ -1110,30 +1250,49 @@ function EditorColumn({
         />
       )}
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-white/5 px-4 py-2.5">
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-xs font-medium capitalize shadow-sm">
-            {problem.language}
-          </Badge>
-          <span className="text-xs text-muted-foreground">
-            {lineCount} {lineCount === 1 ? "line" : "lines"}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="hidden text-[10px] text-muted-foreground/70 sm:inline">
-            {canRun ? "⌘↵ run · ⌘⇧↵ submit" : "⌘⇧↵ submit"}
-          </span>
+        <Badge variant="secondary" className="text-xs font-medium capitalize shadow-sm">
+          {problem.language}
+        </Badge>
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
           <HintPopover
             hints={hints}
             hintCount={hintCount}
             loading={hintLoading}
             onRequestHint={onRequestHint}
           />
+          <span className="hidden h-4 w-px shrink-0 bg-border sm:block" aria-hidden />
+          <Button
+            type="button"
+            size="sm"
+            variant={aiPanelOpen ? "secondary" : "outline"}
+            className="h-7 gap-1 px-2.5 text-xs"
+            onClick={onToggleAiPanel}
+            title={aiPanelOpen ? "Hide AI panel" : "Show AI panel"}
+          >
+            <Sparkles className="size-3" />
+            <span className="hidden sm:inline">{aiPanelOpen ? "Hide AI" : "AI"}</span>
+          </Button>
+          <EditorToolbarActions
+            canRun={canRun}
+            running={running}
+            streaming={streaming}
+            onRun={onRun}
+            onSubmit={onSubmit}
+            isReviewing={isReviewing}
+            submitDisabled={submitDisabled}
+            reviewComplete={reviewComplete}
+            submissionPassed={submissionPassed}
+            aiSubmitReview={aiSubmitReview}
+            submitTitle={submitTitle}
+          />
+          <span className="hidden h-4 w-px shrink-0 bg-border sm:block" aria-hidden />
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+            className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
             onClick={onReset}
+            title="Reset editor to starter code"
           >
             <RotateCcw className="size-3" />
             Reset
@@ -1228,8 +1387,8 @@ function OutputPanel({
         </label>
         <p className="mb-1.5 text-[10px] leading-snug text-white/30">
           Script: one value per line for <code className="text-white/50">input()</code>.
-          Function: a Python literal like <code className="text-white/50">[1, 2, 3]</code> is
-          passed to your last <code className="text-white/50">def</code> automatically.
+          Function: use a literal like <code className="text-white/50">[1, 2, 3]</code>, or paste
+          an example call like <code className="text-white/50">fn([1, 2], &quot;x&quot;)</code>.
         </p>
         <textarea
           value={runStdin}
@@ -1286,10 +1445,9 @@ function OutputPanel({
         )}
 
         {!running && results.length === 0 && !showRunOnce && (
-          <div className="px-3 py-3">
-            <span className="text-xs text-white/30">
-              Use Run (header) for test cases, or Run with this input above.
-            </span>
+          <div className="px-3 py-3 text-xs text-white/40">
+            <p>Use Run in the toolbar for example tests.</p>
+            <p className="mt-1">Or use Run with this input for a custom trial.</p>
           </div>
         )}
 

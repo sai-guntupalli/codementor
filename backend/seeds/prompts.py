@@ -1,10 +1,20 @@
 from db.session import SessionLocal
 from models.content import Prompt
 
+PROMPT_MAX_TOKENS: dict[str, int] = {
+    "code_review": 1200,
+    "hint_generator": 400,
+    "solution_generator": 800,
+    "teach_me": 800,
+    "surprise_me": 500,
+    "skill_assessor": 800,
+}
+
 PROMPTS = [
     {
         "name": "code_review",
         "version": 2,
+        "max_tokens": 1200,
         "variables": ["code", "language", "problem", "user_level"],
         "template": """You are a concise {language} tutor reviewing a {user_level}-level learner's submission.
 
@@ -44,6 +54,7 @@ Rules:
     {
         "name": "hint_generator",
         "version": 2,
+        "max_tokens": 400,
         "variables": ["problem", "code_so_far", "hint_number", "user_level"],
         "template": """Give hint #{hint_number} of 3 for a {user_level}-level learner.
 
@@ -61,6 +72,7 @@ Rules:
     {
         "name": "solution_generator",
         "version": 2,
+        "max_tokens": 800,
         "variables": ["problem", "language", "solution_level", "user_level"],
         "template": """Write a {solution_level} {language} solution for a {user_level}-level learner.
 
@@ -79,6 +91,7 @@ Keep it tight — no essay.""",
     {
         "name": "teach_me",
         "version": 2,
+        "max_tokens": 800,
         "variables": ["code", "explain_style", "user_level", "language"],
         "template": """Explain this {language} code to a {user_level}-level learner.
 
@@ -93,6 +106,7 @@ Walk through the code in order. For each logical chunk: one line what it does, o
     {
         "name": "surprise_me",
         "version": 2,
+        "max_tokens": 500,
         "variables": ["language", "user_skill_level", "topic_focus", "avoid_recent_ids"],
         "template": """Generate one {language} coding problem for skill level {user_skill_level}.
 Topic: {topic_focus}
@@ -111,6 +125,7 @@ Return ONLY valid JSON:
     {
         "name": "skill_assessor",
         "version": 2,
+        "max_tokens": 800,
         "variables": ["recent_submissions", "current_level"],
         "template": """Assess skill from recent submissions.
 
@@ -133,7 +148,18 @@ def seed_prompts() -> None:
     db = SessionLocal()
     try:
         if db.query(Prompt).count() > 0:
-            print("Prompts already seeded, skipping.")
+            updated = 0
+            for name, max_tokens in PROMPT_MAX_TOKENS.items():
+                rows = db.query(Prompt).filter(Prompt.name == name).all()
+                for row in rows:
+                    if row.max_tokens != max_tokens:
+                        row.max_tokens = max_tokens
+                        updated += 1
+            if updated:
+                db.commit()
+                print(f"Updated max_tokens on {updated} prompt row(s).")
+            else:
+                print("Prompts already seeded, skipping.")
             return
         db.add_all([Prompt(**p) for p in PROMPTS])
         db.commit()

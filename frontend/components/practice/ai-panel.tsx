@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { MarkdownContent } from "@/components/markdown-content";
@@ -56,6 +57,7 @@ type AiPanelProps = {
   onRequestCodeReview: () => void;
   onSendChat: () => void;
   reviewComplete?: boolean;
+  quotaExhausted?: boolean;
   onClose?: () => void;
 };
 
@@ -80,6 +82,7 @@ export function AiPanel({
   onRequestCodeReview,
   onSendChat,
   reviewComplete,
+  quotaExhausted = false,
   onClose,
 }: AiPanelProps) {
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -119,6 +122,7 @@ export function AiPanel({
             <button
               key={id}
               type="button"
+              disabled={quotaExhausted && id !== "review"}
               onClick={() => onTabChange(id)}
               className={cn(
                 "relative flex flex-1 flex-col items-center gap-1 rounded-lg py-2 transition-all",
@@ -136,6 +140,25 @@ export function AiPanel({
 
       {/* Scrollable content (all tabs except chat input) */}
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        {quotaExhausted &&
+          (activeTab === "hints" ||
+            activeTab === "solution" ||
+            activeTab === "code-review" ||
+            activeTab === "chat") && (
+            <div className="mb-4 rounded-lg border border-destructive/25 bg-destructive/8 p-4 text-center">
+              <p className="text-sm font-medium text-foreground">Monthly AI limit reached</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Upgrade for more calls or wait until your quota resets.
+              </p>
+              <Link
+                href="/settings"
+                className="mt-3 inline-block text-xs font-medium text-primary hover:underline"
+              >
+                View usage & upgrade →
+              </Link>
+            </div>
+          )}
+
         {activeTab === "review" && (
           <div className="space-y-3">
             {reviewComplete &&
@@ -177,7 +200,7 @@ export function AiPanel({
               <Button
                 size="sm"
                 className="w-full"
-                disabled={loading}
+                disabled={loading || quotaExhausted}
                 onClick={() => onRequestHint(hintCount + 1)}
               >
                 {loading ? (
@@ -243,7 +266,12 @@ export function AiPanel({
                 </button>
               ))}
             </div>
-            <Button size="sm" className="w-full" disabled={loading} onClick={onRequestSolution}>
+            <Button
+              size="sm"
+              className="w-full"
+              disabled={loading || quotaExhausted}
+              onClick={onRequestSolution}
+            >
               {loading ? (
                 <>
                   <Loader2 className="mr-1.5 size-3.5 animate-spin" />
@@ -273,7 +301,7 @@ export function AiPanel({
           <div className="space-y-3">
             <button
               type="button"
-              disabled={loading}
+              disabled={loading || quotaExhausted}
               onClick={onRequestCodeReview}
               className={cn(
                 "group w-full rounded-xl border border-dashed px-4 py-5 text-center transition-all",
@@ -378,7 +406,7 @@ export function AiPanel({
             />
             <button
               type="button"
-              disabled={loading || !chatInput.trim()}
+              disabled={loading || quotaExhausted || !chatInput.trim()}
               onClick={onSendChat}
               className={cn(
                 "mb-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg transition-all",

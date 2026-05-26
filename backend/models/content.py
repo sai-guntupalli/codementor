@@ -49,6 +49,7 @@ class Prompt(Base):
     template: Mapped[str] = mapped_column(Text, nullable=False)
     variables: Mapped[list] = mapped_column(ARRAY(String), default=[])
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    max_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

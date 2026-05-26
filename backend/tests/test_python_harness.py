@@ -3,6 +3,7 @@
 from core.python_harness import (
     guess_entry_function,
     should_use_function_harness,
+    stdin_looks_like_function_call,
     wrap_python_function_harness,
 )
 
@@ -33,3 +34,21 @@ def test_wrap_calls_function_with_list_literal():
     ns: dict = {}
     exec(wrapped, ns)  # noqa: S102
     assert ns.get("__cm_result") == [3, 2, 1]
+
+
+def test_function_call_example_is_runnable():
+    assert stdin_looks_like_function_call("delete_person(['John', 'Jane'], 'Jane')")
+
+
+def test_should_use_harness_for_function_call_example():
+    code = "def delete_person(names, target):\n    return [n for n in names if n != target]\n"
+    assert should_use_function_harness(code, "delete_person(['John', 'Jane'], 'Jane')")
+
+
+def test_wrap_evaluates_function_call_example():
+    code = "def delete_person(names, target):\n    return [n for n in names if n != target]\n"
+    wrapped = wrap_python_function_harness(code, "delete_person(['John', 'Jane', 'Jack'], 'Jane')")
+    assert wrapped is not None
+    ns: dict = {}
+    exec(wrapped, ns)  # noqa: S102
+    assert ns.get("__cm_result") == ["John", "Jack"]

@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { NotFoundView } from "@/components/layout/not-found-view";
 import {
   PageContent,
   PageHeader,
@@ -29,7 +30,10 @@ import {
 } from "@/lib/api";
 import { difficultyBadgeVariant } from "@/lib/tags";
 import { cn } from "@/lib/utils";
-import { setPracticePathContext } from "@/lib/learning-path-context";
+import {
+  recordActiveLearningPath,
+  setPracticePathContext,
+} from "@/lib/learning-path-context";
 
 const TYPE_LABELS: Record<string, string> = {
   curated: "CURATED",
@@ -63,6 +67,7 @@ export default function LearnPathDetailPage() {
       }
       setPathMeta(meta);
       setProblems(pathProblems);
+      recordActiveLearningPath(pathId, authToken);
     },
     [pathId]
   );
@@ -127,11 +132,19 @@ export default function LearnPathDetailPage() {
   }
 
   if (!pathMeta) {
+    const isNotFound = !error || /not found/i.test(error);
+    if (isNotFound) {
+      return (
+        <AppShell>
+          <NotFoundView variant="path" />
+        </AppShell>
+      );
+    }
     return (
       <AppShell>
         <PageContent width="xl">
-          <p className="text-sm text-destructive">{error ?? "Path not found"}</p>
-          <Link href="/learn" className="mt-4 inline-block text-sm text-primary">
+          <p className="text-sm text-destructive">{error}</p>
+          <Link href="/learn" className="mt-4 inline-block text-sm font-medium text-primary">
             Back to paths
           </Link>
         </PageContent>

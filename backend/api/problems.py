@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from core.deps import get_current_user
 from core.learning_path import fetch_ranked_candidates, recommended_id_order
+from core.starter_code import build_starter_info
 from core.problem_tags import (
     CANONICAL_TAGS,
     fetch_tag_counts,
@@ -344,7 +345,15 @@ def get_problem(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Problem {pid} not found",
         )
-    return problem
+    base = ProblemPublicOut.model_validate(problem)
+    starter = build_starter_info(problem, db)
+    return base.model_copy(
+        update={
+            "starter_code": starter.starter_code,
+            "entry_function": starter.entry_function,
+            "test_call": starter.test_call,
+        }
+    )
 
 
 _VARIANT_PROMPT = {

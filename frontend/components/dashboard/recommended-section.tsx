@@ -245,7 +245,27 @@ function ProblemRowMeta({
   );
 }
 
-export function RecommendedEmpty() {
+export function RecommendedEmpty({
+  pathsStartedCount = 0,
+  hasAnySubmission = false,
+}: {
+  pathsStartedCount?: number;
+  hasAnySubmission?: boolean;
+}) {
+  const title =
+    pathsStartedCount === 0
+      ? "Start a learning path"
+      : hasAnySubmission
+        ? "Pick a path to continue"
+        : "No active path problems";
+
+  const description =
+    pathsStartedCount === 0
+      ? "Curated tracks group problems by topic — arrays, loops, functions, and more."
+      : hasAnySubmission
+        ? "Switch paths from the sidebar, or open a track to see your next problems."
+        : "Open a learning path and solve your first problem to see recommendations here.";
+
   return (
     <section className="panel-card flex flex-col">
       <div className="flex items-center gap-2 border-b border-border/50 px-4 py-3 md:px-5">
@@ -254,16 +274,23 @@ export function RecommendedEmpty() {
       </div>
       <div className="px-5 py-10 text-center">
         <BookOpen className="mx-auto size-8 text-muted-foreground/40" />
-        <p className="mt-3 text-sm font-medium">No learning paths yet</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Browse curated tracks or complete your profile for a personalized path.
-        </p>
-        <Link href="/learn" className="mt-4 inline-block">
-          <Button size="sm" variant="outline" className="gap-1.5">
-            Explore paths
-            <ChevronRight className="size-3.5" />
-          </Button>
-        </Link>
+        <p className="mt-3 text-sm font-medium">{title}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          <Link href="/learn">
+            <Button size="sm" variant="outline" className="gap-1.5">
+              Explore paths
+              <ChevronRight className="size-3.5" />
+            </Button>
+          </Link>
+          {pathsStartedCount === 0 && (
+            <Link href="/problems">
+              <Button size="sm" variant="ghost" className="gap-1.5 text-xs">
+                Or browse the library
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
     </section>
   );

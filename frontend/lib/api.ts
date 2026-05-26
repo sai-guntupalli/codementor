@@ -1,3 +1,5 @@
+import type { TestCaseResult } from "@/lib/execute-api";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export type AuthResponse = {
@@ -5,6 +7,23 @@ export type AuthResponse = {
   refresh_token: string | null;
   user_id: string;
   is_new_user: boolean;
+};
+
+export type PlanOut = {
+  id: string;
+  name: string;
+  price_monthly: number;
+  price_yearly: number;
+  llm_calls_per_month: number;
+  features: Record<string, boolean>;
+  is_active: boolean;
+};
+
+export type UserPlanOut = {
+  plan: PlanOut | null;
+  subscription_status: string | null;
+  ai_submit_review: boolean;
+  dev_switch_enabled: boolean;
 };
 
 export type UserOut = {
@@ -19,6 +38,8 @@ export type UserOut = {
   streak_days: number;
   xp_total: number;
   is_profile_complete: boolean;
+  /** True when submit runs AI review (active paid subscription). */
+  ai_submit_review: boolean;
 };
 
 export type LearningPathProblem = {
@@ -147,6 +168,31 @@ export async function apiFetch<T>(
   return res.json() as Promise<T>;
 }
 
+/** Persist which learning path the user is working on (dashboard active path). */
+export async function focusLearningPath(
+  token: string,
+  pathId: string,
+  problemId?: string
+): Promise<void> {
+  const qs = problemId ? `?problem_id=${encodeURIComponent(problemId)}` : "";
+  await apiFetch<void>(`/learning-paths/${pathId}/focus${qs}`, {
+    method: "POST",
+    token,
+  });
+}
+
+export async function recordPracticeSession(
+  token: string,
+  problemId: string,
+  pathId?: string | null
+): Promise<void> {
+  await apiFetch<void>("/users/me/practice-session", {
+    method: "POST",
+    token,
+    body: JSON.stringify({ problem_id: problemId, path_id: pathId ?? null }),
+  });
+}
+
 export type SubmissionOut = {
   id: string;
   user_id: string;
@@ -159,6 +205,17 @@ export type SubmissionOut = {
   solution_viewed: boolean;
   score: number | null;
   created_at: string;
+};
+
+export type SubmissionVerifyOut = {
+  submission_id: string;
+  passed_count: number;
+  total_count: number;
+  all_passed: boolean;
+  score: number;
+  xp_earned: number;
+  results: TestCaseResult[];
+  summary: string;
 };
 
 export type SubmissionHistoryItem = {
@@ -176,6 +233,63 @@ export type SolvedProblemIdsOut = {
   solved_ids: string[];
 };
 
+export type DailyChallengeOut = {
+  problem_id: string;
+  problem_title: string;
+  difficulty: string;
+  language: string;
+  path_id: string | null;
+  completed_today: boolean;
+};
+
+export type DailyGoalOut = {
+  target: number;
+  solved_today: number;
+  met: boolean;
+};
+
+export type WeakTopicOut = {
+  topic: string;
+  skill: number;
+  problems: { id: string; title: string; difficulty: string }[];
+};
+
+export type BookmarkSummaryOut = {
+  problem_id: string;
+  title: string;
+  difficulty: string;
+  language: string;
+};
+
+export type WeekStatsOut = {
+  solved_this_week: number;
+  solved_last_week: number;
+  submissions_this_week: number;
+  submissions_last_week: number;
+  xp_total: number;
+};
+
+export type LastSessionOut = {
+  problem_id: string;
+  problem_title: string;
+  path_id: string | null;
+  updated_at: string;
+};
+
+export type PathCompletionOut = {
+  path_id: string;
+  path_title: string;
+  total_count: number;
+  show_celebration: boolean;
+};
+
+export type SuggestedPathOut = {
+  path_id: string;
+  title: string;
+  description: string | null;
+  reason: string;
+};
+
 export type DashboardOut = {
   user: UserOut;
   recent_submissions: SubmissionHistoryItem[];
@@ -184,6 +298,25 @@ export type DashboardOut = {
   active_path_problems: LearningPathProblemItem[];
   solved_count: number;
   library_total: number;
+  usage: UsageOut;
+  daily_challenge: DailyChallengeOut | null;
+  daily_goal: DailyGoalOut;
+  weak_topics: WeakTopicOut[];
+  bookmarks: BookmarkSummaryOut[];
+  week_stats: WeekStatsOut;
+  last_session: LastSessionOut | null;
+  path_completion: PathCompletionOut | null;
+  suggested_path: SuggestedPathOut | null;
+  paths_started_count: number;
+  has_any_submission: boolean;
+};
+
+export type UsageOut = {
+  calls_used: number;
+  calls_limit: number;
+  cost_usd_month: number;
+  resets_at: string;
+  breakdown: Record<string, number>;
 };
 
 export type CurriculumPathOut = {
