@@ -11,7 +11,6 @@ import {
   LogOut,
   Settings,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -36,21 +35,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-background">
-      <div className="living-glow pointer-events-none absolute top-[-15%] left-[-8%] z-0 h-[45%] w-[45%]" aria-hidden />
-      <div className="living-glow pointer-events-none absolute right-[-8%] bottom-[-15%] z-0 h-[45%] w-[45%]" aria-hidden />
-
-      <aside className="relative z-10 hidden w-56 shrink-0 flex-col border-r border-white/10 glass-panel md:flex">
+      {/* Desktop sidebar — narrow icon+label nav like Zerodha Coin */}
+      <aside className="relative z-10 hidden w-[88px] shrink-0 flex-col border-r border-border bg-card md:flex">
+        {/* Logo */}
         <Link
           href="/dashboard"
-          className="flex h-16 items-center gap-2.5 border-b border-white/10 px-4 transition-colors hover:bg-white/5"
+          className="flex h-[60px] items-center justify-center border-b border-border transition-opacity hover:opacity-80"
+          aria-label="CodeMentor home"
         >
-          <span className="aura-gradient flex size-8 items-center justify-center rounded-lg shadow-md">
-            <Code2 className="size-4 text-primary-foreground" strokeWidth={2.25} />
+          <span className="aura-gradient flex size-9 items-center justify-center rounded-xl shadow-sm">
+            <Code2 className="size-4 text-white" strokeWidth={2.25} />
           </span>
-          <span className="font-semibold tracking-tight text-primary">CodeMentor</span>
         </Link>
 
-        <nav className="flex-1 space-y-1 p-3">
+        {/* Nav items */}
+        <nav className="flex flex-1 flex-col items-center gap-1 px-2 py-3" aria-label="Main navigation">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(`${href}/`);
             return (
@@ -58,46 +57,77 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={href}
                 href={href}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
+                  "flex w-full flex-col items-center gap-1 rounded-xl px-2 py-2.5 text-center transition-all",
                   active
-                    ? "border border-primary/30 bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                    ? "border border-primary/25 bg-primary/8 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <Icon className={cn("size-4 shrink-0", active && "text-secondary")} />
-                {label}
+                <Icon
+                  className={cn("size-5 shrink-0", active ? "text-primary" : "")}
+                  strokeWidth={active ? 2.25 : 1.75}
+                />
+                <span className="text-[10px] font-medium leading-tight">{label}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="border-t border-white/10 p-3">
-          <Button
-            variant="ghost"
-            size="sm"
+        {/* Logout */}
+        <div className="border-t border-border px-2 py-3">
+          <button
+            type="button"
             onClick={handleLogout}
-            className="w-full justify-start text-muted-foreground hover:bg-white/5 hover:text-foreground"
+            className="flex w-full flex-col items-center gap-1 rounded-xl px-2 py-2.5 text-center text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
+            aria-label="Log out"
           >
-            <LogOut className="mr-2 size-4" />
-            Log out
-          </Button>
+            <LogOut className="size-5" strokeWidth={1.75} />
+            <span className="text-[10px] font-medium leading-tight">Log out</span>
+          </button>
         </div>
       </aside>
 
+      {/* Main content */}
       <div className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 bg-background/60 px-4 backdrop-blur-xl md:hidden">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <span className="aura-gradient flex size-7 items-center justify-center rounded-lg">
-              <Code2 className="size-3.5 text-primary-foreground" strokeWidth={2.25} />
+        {/* Mobile top bar */}
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-card px-4 md:hidden">
+          <Link href="/dashboard" className="flex items-center gap-2.5">
+            <span className="aura-gradient flex size-8 items-center justify-center rounded-lg shadow-sm">
+              <Code2 className="size-4 text-white" strokeWidth={2.25} />
             </span>
-            <span className="font-semibold text-primary">CodeMentor</span>
+            <span className="font-semibold tracking-tight text-primary">CodeMentor</span>
           </Link>
-          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Log out"
+          >
             <LogOut className="size-4" />
-          </Button>
+          </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        {/* Mobile bottom nav */}
+        <nav className="fixed inset-x-0 bottom-0 z-50 flex border-t border-border bg-card md:hidden" aria-label="Mobile navigation">
+          {NAV_ITEMS.slice(0, 4).map(({ href, label, icon: Icon }) => {
+            const active = pathname === href || pathname.startsWith(`${href}/`);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "flex flex-1 flex-col items-center gap-0.5 py-2 transition-colors",
+                  active ? "text-primary" : "text-muted-foreground"
+                )}
+              >
+                <Icon className="size-5" strokeWidth={active ? 2.25 : 1.75} />
+                <span className="text-[10px] font-medium">{label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="min-h-0 flex-1 overflow-y-auto pb-16 md:pb-0">{children}</div>
       </div>
     </div>
   );

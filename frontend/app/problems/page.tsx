@@ -122,7 +122,7 @@ function FilterPills({
               "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
               value === opt.value
                 ? "border-primary/50 bg-primary/15 text-primary"
-                : "border-white/10 bg-white/5 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                : "border-border bg-muted text-muted-foreground hover:border-primary/40 hover:text-foreground"
             )}
           >
             {opt.label}
@@ -412,7 +412,7 @@ function ProblemsPageContent() {
         )}
       >
         <section className="panel-card">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-3 py-2.5 md:px-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2.5 md:px-4">
             <div className="flex min-w-0 items-center gap-2.5">
               <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
                 <ListChecks className="size-4" />
@@ -610,7 +610,7 @@ function ProblemsPageContent() {
               selectMode && selectedIds.size > 0 && "fixed bottom-20 left-4 right-4 z-[101] mx-auto max-w-xl shadow-lg md:left-auto md:right-6",
               toast.variant === "error"
                 ? "border-destructive/20 bg-destructive/10 text-destructive"
-                : "border-white/10 glass-panel text-foreground"
+                : "border-border bg-card text-foreground shadow-md"
             )}
           >
             {toast.message}
@@ -624,7 +624,7 @@ function ProblemsPageContent() {
         )}
 
         {loading && (
-          <ul className="divide-y divide-border/50 rounded-lg border border-white/10 glass-panel">
+          <ul className="divide-y divide-border rounded-lg border border-border bg-card">
             {Array.from({ length: 8 }).map((_, i) => (
               <li key={i} className="h-12 animate-pulse bg-muted/20" />
             ))}
@@ -632,7 +632,7 @@ function ProblemsPageContent() {
         )}
 
         {!loading && !error && problems.length === 0 && (
-          <div className="rounded-lg border border-white/10 glass-panel px-4 py-8 text-center">
+          <div className="rounded-lg border border-border bg-card px-4 py-8 text-center">
             <p className="text-sm text-muted-foreground">
               {hasActiveFilters ? "No problems match your filters." : "No problems published yet."}
             </p>
@@ -641,9 +641,9 @@ function ProblemsPageContent() {
 
         {!loading && !error && problems.length > 0 && (
           <>
-            <ul className="divide-y divide-border/50 overflow-hidden rounded-lg border border-white/10 glass-panel">
+            <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
               {selectMode && (
-                <li className="flex items-center gap-2 border-b border-white/10 bg-muted/20 px-3 py-2 md:px-4">
+                <li className="flex items-center gap-2 border-b border-border bg-muted px-3 py-2 md:px-4">
                   <input
                     ref={selectAllRef}
                     type="checkbox"

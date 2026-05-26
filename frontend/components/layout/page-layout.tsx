@@ -50,10 +50,10 @@ export function PageHeader({
 }) {
   return (
     <section className="panel-card">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-3 py-2.5 md:px-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2.5 md:px-4">
         <div className="flex min-w-0 items-center gap-2.5">
           {icon && (
-            <span className="aura-gradient flex size-8 shrink-0 items-center justify-center rounded-lg text-primary-foreground shadow-sm">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary shadow-sm">
               {icon}
             </span>
           )}
@@ -88,11 +88,11 @@ export function PageHero({
     <section className="panel-card overflow-hidden">
       <div className="relative px-5 py-6 md:px-8 md:py-7">
         <div
-          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-secondary/10"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/6 via-transparent to-primary/3"
           aria-hidden
         />
         {icon && (
-          <div className="relative mb-3 flex size-10 items-center justify-center rounded-xl aura-gradient text-primary-foreground shadow-md">
+          <div className="relative mb-3 flex size-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary shadow-sm">
             {icon}
           </div>
         )}
@@ -130,7 +130,7 @@ export function PageSection({
 }) {
   return (
     <section className={cn("panel-card flex flex-col", className)}>
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 md:px-5">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3 md:px-5">
         <div className="flex items-center gap-2">
           {icon}
           <div>
@@ -178,7 +178,7 @@ export function PageStat({
     <div className="panel-card flex flex-col justify-center px-4 py-3.5">
       <div className="flex items-center gap-2.5">
         {icon && (
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-muted">
             {icon}
           </span>
         )}

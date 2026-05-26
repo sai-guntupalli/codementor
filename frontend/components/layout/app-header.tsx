@@ -16,7 +16,7 @@ export function AppHeader({ crumbs, title, meta, actions, className }: AppHeader
   return (
     <header
       className={cn(
-        "flex shrink-0 items-center justify-between gap-4 border-b border-white/10 bg-background/70 px-4 py-3 backdrop-blur-xl",
+        "flex shrink-0 items-center justify-between gap-4 border-b border-border bg-card/90 px-4 py-3 backdrop-blur-sm",
         className
       )}
     >
@@ -34,7 +34,7 @@ export function AppHeader({ crumbs, title, meta, actions, className }: AppHeader
         </Link>
 
         {(crumbs?.length || title) && (
-          <div className="hidden min-w-0 items-center gap-2 border-l border-white/10 pl-3 sm:flex">
+          <div className="hidden min-w-0 items-center gap-2 border-l border-border pl-3 sm:flex">
             {crumbs?.map((c, i) => (
               <span key={i} className="flex items-center gap-2 text-sm">
                 {i > 0 && <span className="text-muted-foreground/50">/</span>}
