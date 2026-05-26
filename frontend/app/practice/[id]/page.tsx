@@ -57,6 +57,7 @@ import {
 } from "@/lib/execute-api";
 import { cn } from "@/lib/utils";
 import { resolvePracticePathId } from "@/lib/learning-path-context";
+import { getCached, setCached } from "@/lib/api-cache";
 
 type Example = {
   input: string;
@@ -164,18 +165,38 @@ export default function PracticePage() {
         const pathId = await resolvePracticePathId(token, id, pathFromUrl);
         setResolvedPathId(pathId);
 
+        const fetchPathProblems = async (pid: string): Promise<LearningPathProblemItem[]> => {
+          const k = `learning-paths/${pid}/problems`;
+          const cached = getCached<LearningPathProblemItem[]>(k, token);
+          if (cached) return cached;
+          const items = await apiFetch<LearningPathProblemItem[]>(
+            `/learning-paths/${pid}/problems`,
+            { token }
+          );
+          setCached(k, token, items);
+          return items;
+        };
+
+        const fetchLearningPaths = async (): Promise<LearningPathListItem[]> => {
+          const k = "learning-paths";
+          const cached = getCached<LearningPathListItem[]>(k, token);
+          if (cached) return cached;
+          const data = await apiFetch<LearningPathListItem[]>("/learning-paths", { token });
+          setCached(k, token, data);
+          return data;
+        };
+
         const pathFetch: Promise<{ problems: LearningPathProblem[]; resolvedId?: string }> = pathId
-          ? apiFetch<LearningPathProblemItem[]>(`/learning-paths/${pathId}/problems`, { token })
+          ? fetchPathProblems(pathId)
               .then((items) => ({ problems: items as LearningPathProblem[], resolvedId: pathId }))
               .catch(() => ({ problems: [] as LearningPathProblem[] }))
-          : apiFetch<LearningPathListItem[]>("/learning-paths", { token })
+          : fetchLearningPaths()
               .then(async (paths) => {
                 const active = pickActiveLearningPath(paths);
                 if (!active) return { problems: [] as LearningPathProblem[] };
-                const items = await apiFetch<LearningPathProblemItem[]>(
-                  `/learning-paths/${active.id}/problems`,
-                  { token }
-                ).catch(() => [] as LearningPathProblemItem[]);
+                const items = await fetchPathProblems(active.id).catch(
+                  () => [] as LearningPathProblemItem[]
+                );
                 return { problems: items as LearningPathProblem[], resolvedId: active.id };
               })
               .catch(() => ({ problems: [] as LearningPathProblem[] }));
@@ -588,10 +609,10 @@ export default function PracticePage() {
   if (loading) {
     return (
       <main className="workspace-canvas flex h-screen flex-col">
-        <AppHeader className="border-border/60 bg-card shadow-header" />
+        <AppHeader />
         <div className="flex min-h-0 flex-1 gap-3 p-3">
           <PracticePanel className="hidden w-[min(380px,32vw)] shrink-0 lg:flex">
-            <div className="flex border-b border-border/50 p-1">
+            <div className="flex border-b border-white/10 p-1">
               <div className="m-1 h-8 w-24 animate-pulse rounded-lg bg-muted/50" />
               <div className="m-1 h-8 w-20 animate-pulse rounded-lg bg-muted/30" />
             </div>
@@ -613,7 +634,7 @@ export default function PracticePage() {
             </div>
           </PracticePanel>
           <PracticePanel className="min-w-0 flex-1">
-            <div className="border-b border-border/50 px-4 py-3">
+            <div className="border-b border-white/10 px-4 py-3">
               <div className="h-4 w-20 animate-pulse rounded-full bg-muted/40" />
             </div>
             <div className="flex-1 p-4">
@@ -639,7 +660,7 @@ export default function PracticePage() {
   return (
     <main className="workspace-canvas flex h-screen flex-col">
       <AppHeader
-        className="z-10 border-border/50 bg-card shadow-header"
+        className="z-10"
         crumbs={[{ label: "Problems", href: "/problems" }]}
         title={problem.title}
         meta={
@@ -754,7 +775,7 @@ export default function PracticePage() {
               )}
             </button>
             {mobileDescOpen && (
-              <div className="max-h-[40vh] overflow-y-auto border-t border-border/50 px-4 py-3">
+              <div className="max-h-[40vh] overflow-y-auto border-t border-white/10 px-4 py-3">
                 <ProblemDescription problem={problem} showTitle={false} compact />
               </div>
             )}
@@ -936,7 +957,7 @@ function DescriptionPanel({
 
   return (
     <>
-      <div className="flex shrink-0 items-center gap-1 border-b border-border/50 bg-muted/30 p-1.5">
+      <div className="flex shrink-0 items-center gap-1 border-b border-white/10 bg-white/5 p-1.5">
         <div className="flex min-w-0 flex-1 gap-1">
           <button
             type="button"
@@ -944,8 +965,8 @@ function DescriptionPanel({
             className={cn(
               "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all",
               descTab === "description"
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
+                ? "bg-primary/15 text-primary shadow-sm"
+                : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
             )}
           >
             <FileText className="size-3.5" />
@@ -957,8 +978,8 @@ function DescriptionPanel({
             className={cn(
               "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all",
               descTab === "problems"
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
+                ? "bg-primary/15 text-primary shadow-sm"
+                : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
             )}
           >
             <ListTodo className="size-3.5" />
@@ -1088,7 +1109,7 @@ function EditorColumn({
           onRestoreSubmission={onRestoreSubmission}
         />
       )}
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border/50 bg-muted/25 px-4 py-2.5">
+      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-white/5 px-4 py-2.5">
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="text-xs font-medium capitalize shadow-sm">
             {problem.language}
@@ -1172,7 +1193,7 @@ function OutputPanel({
 
   return (
     <div className="shrink-0 px-4 pb-4">
-      <div className="overflow-hidden rounded-xl border border-border/50 bg-[oklch(0.13_0.025_275)] shadow-card">
+      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#060e20] shadow-card">
       <div className="flex items-center justify-between border-b border-white/8 px-3 py-2">
         <div className="flex items-center gap-2">
           <Terminal className="size-3.5 text-white/30" />

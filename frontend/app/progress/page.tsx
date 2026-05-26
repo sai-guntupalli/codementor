@@ -181,9 +181,9 @@ export default function ProgressPage() {
                 </span>
                 <span className="font-medium tabular-nums text-foreground">{pathPct}%</span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div className="stitch-progress h-2">
                 <div
-                  className="h-2 rounded-full bg-primary transition-all duration-500"
+                  className="stitch-progress-fill h-2 transition-all duration-500"
                   style={{ width: `${Math.max(pathPct, pathCompleted > 0 ? 4 : 0)}%` }}
                 />
               </div>
@@ -275,9 +275,9 @@ export default function ProgressPage() {
                           {count} · {pct}%
                         </span>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="stitch-progress h-2">
                         <div
-                          className="h-2 rounded-full bg-primary/80 transition-all"
+                          className="stitch-progress-fill h-2 transition-all"
                           style={{ width: `${Math.max(pct, 4)}%` }}
                         />
                       </div>
@@ -309,7 +309,7 @@ export default function ProgressPage() {
                     </div>
                     <div className="h-2 overflow-hidden rounded-full bg-muted">
                       <div
-                        className="h-2 rounded-full bg-primary transition-all"
+                        className="stitch-progress-fill h-2 transition-all"
                         style={{ width: `${Math.max(pct, 4)}%` }}
                       />
                     </div>

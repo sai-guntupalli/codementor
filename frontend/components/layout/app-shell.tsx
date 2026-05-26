@@ -23,9 +23,6 @@ const NAV_ITEMS = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-const TOP_BAR_CLASS =
-  "flex h-14 shrink-0 items-center border-b border-border/80";
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -38,62 +35,65 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      {/* Sidebar */}
-      <aside className="hidden w-52 shrink-0 flex-col border-r border-border/80 bg-sidebar md:flex">
+    <div className="relative flex h-screen overflow-hidden bg-background">
+      <div className="living-glow pointer-events-none absolute top-[-15%] left-[-8%] z-0 h-[45%] w-[45%]" aria-hidden />
+      <div className="living-glow pointer-events-none absolute right-[-8%] bottom-[-15%] z-0 h-[45%] w-[45%]" aria-hidden />
+
+      <aside className="relative z-10 hidden w-56 shrink-0 flex-col border-r border-white/10 glass-panel md:flex">
         <Link
-          href="/"
-          className={cn(
-            TOP_BAR_CLASS,
-            "gap-2 px-4 transition-colors hover:bg-sidebar-accent/30"
-          )}
+          href="/dashboard"
+          className="flex h-16 items-center gap-2.5 border-b border-white/10 px-4 transition-colors hover:bg-white/5"
         >
-          <span className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Code2 className="size-3.5" strokeWidth={2.25} />
+          <span className="aura-gradient flex size-8 items-center justify-center rounded-lg shadow-md">
+            <Code2 className="size-4 text-primary-foreground" strokeWidth={2.25} />
           </span>
-          <span className="font-semibold tracking-tight text-sidebar-foreground">
-            CodeMentor
-          </span>
+          <span className="font-semibold tracking-tight text-primary">CodeMentor</span>
         </Link>
 
-        <nav className="flex-1 space-y-0.5 p-2 pt-3">
+        <nav className="flex-1 space-y-1 p-3">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href;
+            const active = pathname === href || pathname.startsWith(`${href}/`);
             return (
               <Link
                 key={href}
                 href={href}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
                   active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+                    ? "border border-primary/30 bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
                 )}
               >
-                <Icon className="size-4 shrink-0" />
+                <Icon className={cn("size-4 shrink-0", active && "text-secondary")} />
                 {label}
               </Link>
             );
           })}
         </nav>
-      </aside>
 
-      {/* Main area */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header
-          className={cn(
-            TOP_BAR_CLASS,
-            "justify-end bg-card/50 px-4 md:px-6"
-          )}
-        >
+        <div className="border-t border-white/10 p-3">
           <Button
             variant="ghost"
             size="sm"
             onClick={handleLogout}
-            className="text-muted-foreground"
+            className="w-full justify-start text-muted-foreground hover:bg-white/5 hover:text-foreground"
           >
             <LogOut className="mr-2 size-4" />
             Log out
+          </Button>
+        </div>
+      </aside>
+
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 bg-background/60 px-4 backdrop-blur-xl md:hidden">
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <span className="aura-gradient flex size-7 items-center justify-center rounded-lg">
+              <Code2 className="size-3.5 text-primary-foreground" strokeWidth={2.25} />
+            </span>
+            <span className="font-semibold text-primary">CodeMentor</span>
+          </Link>
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground">
+            <LogOut className="size-4" />
           </Button>
         </header>
 

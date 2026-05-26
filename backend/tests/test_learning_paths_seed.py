@@ -39,3 +39,16 @@ def test_problems_for_path_returns_published(db):
     assert len(problems) >= 1
     assert all(p.is_published for p in problems)
     assert all("strings" in (p.topic or []) for p in problems)
+
+
+def test_problems_for_path_balances_difficulties(db):
+    """Paths with multiple difficulties must not fill entirely from the easiest tier."""
+    spec = next(s for s in CURATED_PATHS if s["title"] == "Lists & Arrays")
+    problems = _problems_for_path(db, spec)
+    assert len(problems) <= spec["max_problems"]
+    diffs = {p.difficulty for p in problems}
+    assert "easy" in diffs
+    assert "medium" in diffs, (
+        f"expected easy+medium mix, got only {diffs} — "
+        "check _balanced_by_difficulty when many easy problems exist"
+    )

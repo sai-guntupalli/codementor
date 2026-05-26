@@ -176,6 +176,16 @@ export type SolvedProblemIdsOut = {
   solved_ids: string[];
 };
 
+export type DashboardOut = {
+  user: UserOut;
+  recent_submissions: SubmissionHistoryItem[];
+  learning_paths: LearningPathListItem[];
+  active_path_id: string | null;
+  active_path_problems: LearningPathProblemItem[];
+  solved_count: number;
+  library_total: number;
+};
+
 export type CurriculumPathOut = {
   id: string;
   title: string;

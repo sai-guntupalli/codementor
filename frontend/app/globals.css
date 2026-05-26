@@ -51,7 +51,7 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* CodeMentor — indigo/violet learning platform palette */
+/* CodeMentor — Stitch-inspired deep space palette */
 :root {
   --background: oklch(0.985 0.008 275);
   --foreground: oklch(0.22 0.04 275);
@@ -96,37 +96,39 @@
 }
 
 .dark {
-  --background: oklch(0.16 0.03 275);
-  --foreground: oklch(0.96 0.01 275);
-  --card: oklch(0.2 0.035 275);
-  --card-foreground: oklch(0.96 0.01 275);
-  --popover: oklch(0.2 0.035 275);
-  --popover-foreground: oklch(0.96 0.01 275);
-  --primary: oklch(0.65 0.18 275);
-  --primary-foreground: oklch(0.15 0.03 275);
-  --secondary: oklch(0.26 0.04 275);
-  --secondary-foreground: oklch(0.92 0.02 275);
-  --muted: oklch(0.24 0.035 275);
-  --muted-foreground: oklch(0.68 0.04 275);
-  --accent: oklch(0.28 0.06 295);
-  --accent-foreground: oklch(0.92 0.03 295);
+  --background: #0b1326;
+  --foreground: #dae2fd;
+  --card: #171f33;
+  --card-foreground: #dae2fd;
+  --popover: #171f33;
+  --popover-foreground: #dae2fd;
+  --primary: #d0bcff;
+  --primary-foreground: #340080;
+  --secondary: #4cd7f6;
+  --secondary-foreground: #003640;
+  --muted: #222a3d;
+  --muted-foreground: #cbc3d7;
+  --accent: #131b2e;
+  --accent-foreground: #d0bcff;
   --destructive: oklch(0.65 0.2 25);
-  --border: oklch(0.3 0.04 275);
-  --input: oklch(0.28 0.04 275);
-  --ring: oklch(0.6 0.16 275);
-  --surface: oklch(0.19 0.032 275);
-  --surface-foreground: oklch(0.94 0.01 275);
-  --sidebar: oklch(0.18 0.032 275);
-  --sidebar-foreground: oklch(0.94 0.01 275);
-  --sidebar-primary: oklch(0.65 0.18 275);
-  --sidebar-primary-foreground: oklch(0.15 0.03 275);
-  --sidebar-accent: oklch(0.26 0.04 275);
-  --sidebar-accent-foreground: oklch(0.94 0.01 275);
-  --sidebar-border: oklch(0.3 0.04 275);
-  --sidebar-ring: oklch(0.6 0.16 275);
-  --canvas: oklch(0.14 0.028 275);
+  --border: oklch(1 0 0 / 0.1);
+  --input: #222a3d;
+  --ring: #a078ff;
+  --surface: #131b2e;
+  --surface-foreground: #dae2fd;
+  --sidebar: #131b2e;
+  --sidebar-foreground: #dae2fd;
+  --sidebar-primary: #d0bcff;
+  --sidebar-primary-foreground: #340080;
+  --sidebar-accent: #222a3d;
+  --sidebar-accent-foreground: #dae2fd;
+  --sidebar-border: oklch(1 0 0 / 0.1);
+  --sidebar-ring: #a078ff;
+  --canvas: #060e20;
   --shadow-panel: 0 2px 4px oklch(0 0 0 / 0.2), 0 8px 24px oklch(0 0 0 / 0.35);
   --shadow-panel-hover: 0 4px 8px oklch(0 0 0 / 0.25), 0 12px 32px oklch(0 0 0 / 0.4);
+  --aura-from: #a078ff;
+  --aura-to: #4cd7f6;
 }
 
 @layer base {
@@ -167,7 +169,10 @@
     box-shadow: var(--shadow-panel);
   }
   .dark .panel-card {
-    border-color: oklch(0.32 0.04 275 / 0.8);
+    background: rgba(45, 52, 73, 0.35);
+    backdrop-filter: blur(16px);
+    border-color: oklch(1 0 0 / 0.1);
+    box-shadow: var(--shadow-panel);
   }
   .sub-card {
     border-radius: var(--radius-lg);
@@ -176,7 +181,55 @@
     box-shadow: var(--shadow-sm);
   }
   .dark .sub-card {
-    border-color: oklch(0.28 0.035 275);
-    background-color: oklch(0.22 0.032 275);
+    background: rgba(34, 42, 61, 0.5);
+    border-color: oklch(1 0 0 / 0.08);
+  }
+  .stitch-input {
+    @apply w-full rounded-lg border border-input bg-background/80 px-3 py-2.5 text-sm shadow-sm transition-colors focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30;
+  }
+  .dark .stitch-input {
+    background: rgba(6, 14, 32, 0.6);
+    border-color: oklch(1 0 0 / 0.12);
+  }
+  .stitch-progress {
+    @apply h-1.5 overflow-hidden rounded-full bg-muted;
+  }
+  .aura-gradient {
+    background: linear-gradient(135deg, var(--aura-from, #a078ff) 0%, var(--aura-to, #4cd7f6) 100%);
+  }
+  .stitch-progress-fill {
+    @apply h-full rounded-full transition-all duration-500 ease-out;
+    background: linear-gradient(135deg, var(--aura-from, #a078ff) 0%, var(--aura-to, #4cd7f6) 100%);
+  }
+  .aura-gradient-text {
+    background: linear-gradient(135deg, var(--aura-from, #a078ff) 0%, var(--aura-to, #4cd7f6) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .glass-panel {
+    background: rgba(45, 52, 73, 0.4);
+    backdrop-filter: blur(20px);
+    border: 1px solid oklch(1 0 0 / 0.1);
+  }
+  .living-glow {
+    background: radial-gradient(circle at center, rgba(208, 188, 255, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .ai-mentor-aura {
+    border: 1px solid transparent;
+    background:
+      linear-gradient(#171f33, #171f33) padding-box,
+      linear-gradient(45deg, #d0bcff, #4cd7f6) border-box;
+    animation: aura-pulse 4s infinite alternate;
+  }
+  @keyframes aura-pulse {
+    from {
+      opacity: 0.85;
+    }
+    to {
+      opacity: 1;
+      box-shadow: 0 0 24px rgba(208, 188, 255, 0.35);
+    }
   }
 }

@@ -91,8 +91,8 @@ export function AiPanel({
   }, [chatMessages, activeTab]);
 
   return (
-    <aside className="flex h-full min-h-0 flex-col bg-card">
-      <div className="shrink-0 border-b border-border/50 bg-muted/25">
+    <aside className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b border-white/10 bg-white/5">
         <div className="flex items-center justify-between px-4 py-2.5">
           <div className="flex items-center gap-2">
             <div className="flex size-6 items-center justify-center rounded-md bg-primary/15">
@@ -123,8 +123,8 @@ export function AiPanel({
               className={cn(
                 "relative flex flex-1 flex-col items-center gap-1 rounded-lg py-2 transition-all",
                 activeTab === id
-                  ? "bg-card text-primary shadow-sm"
-                  : "text-muted-foreground/60 hover:bg-card/50 hover:text-muted-foreground"
+                  ? "bg-primary/15 text-primary shadow-sm"
+                  : "text-muted-foreground/60 hover:bg-white/5 hover:text-muted-foreground"
               )}
             >
               <Icon className="size-3.5" />

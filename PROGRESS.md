@@ -109,14 +109,33 @@ Onboarding wizard live — new users answer 4 proficiency questions and receive 
   - Practice IDE: code autosaves to `localStorage` every 500ms; "Draft restored" chip shows on revisit; draft is cleared on submit
   - Practice IDE: "Review complete!" CTA banner appears after streaming review finishes with links to Browse problems / Your learning path
 
+- [2026-05-25] Problem set audit and expansion
+  - Deleted 11 "Bookmark Test Problem" placeholder entries
+  - Tagged 87 previously untagged LeetCode problems (were invisible to all learning paths)
+  - Removed wrong `binary-search` tags from "Power of Two" and "Secret Handshake"
+  - Fixed "Two Sum" difficulty: medium → easy
+  - Added constraints to 54 medium/hard problems that had none
+  - Wrote 45 new hand-crafted problems for thin learning paths:
+    - Sets: 10 new problems (intersection, union, difference, anagram, missing letters, etc.)
+    - Queues: 7 new problems (queue impl, BFS traversal, hit counter, task scheduler, etc.)
+    - Binary Search: 6 new problems (search insert, find peak, koko eating bananas, etc.)
+    - Linked Lists: 6 new problems (reverse, detect cycle, merge sorted, middle node, etc.)
+    - Graphs: 4 new problems (BFS, DFS, connected components, has-path)
+    - Backtracking: 3 new problems (N-Queens, combo sum II, phone letter combos)
+    - Sorting: 4 new problems (merge sorted arrays, sort by frequency, largest number, group anagrams)
+    - Recursion: 3 new problems (power function, tower of hanoi, climb stairs)
+    - Searching: 2 new problems (jump search, find k closest elements)
+  - Fixed balancing algorithm to redistribute unused difficulty-tier slots instead of wasting them
+  - Result: all 25 curated learning paths now at full capacity (517 total problems)
+  - 50 tests passing
+
 ## In Progress
 - Nothing — ready for next milestone
 
 ## Next Steps
 1. Stripe billing integration — Free/Pro plan enforcement, checkout flow, webhook handling
-2. Problem set expansion — seed 50+ Python and SQL problems across difficulty levels
-3. Deploy to production — push Docker images to a registry, deploy to Fly.io / Railway
-4. Open PR for review
+2. Deploy to production — push Docker images to a registry, deploy to Fly.io / Railway
+3. Open PR for review
 
 ## Blockers
 - None

@@ -30,9 +30,11 @@ export async function proxy(req: NextRequest) {
     }
   );
 
+  // getSession reads cookies locally; getUser() calls Supabase on every navigation.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   const { pathname } = req.nextUrl;
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));

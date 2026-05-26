@@ -179,9 +179,9 @@ export default function LearnPathDetailPage() {
                 {progress.progress_pct}%
               </span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div className="stitch-progress h-2">
               <div
-                className="h-2 rounded-full bg-primary transition-all"
+                className="stitch-progress-fill h-2 transition-all"
                 style={{
                   width: `${Math.max(progress.progress_pct, progress.solved_count > 0 ? 4 : 0)}%`,
                 }}

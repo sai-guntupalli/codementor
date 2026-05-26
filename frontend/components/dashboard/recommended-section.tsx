@@ -46,7 +46,7 @@ export function RecommendedSection({
   const others = otherLearningPaths(allPaths, activePath.id);
 
   return (
-    <section className="panel-card flex flex-col bg-card">
+    <section className="panel-card flex flex-col">
       <HeaderBlock
         activePath={activePath}
         progress={progress}
@@ -58,7 +58,7 @@ export function RecommendedSection({
           <Link
             href={practiceHref(activePath.id, nextProblem.id)}
             onClick={() => setPracticePathContext(activePath.id)}
-            className="group flex items-center justify-between gap-3 rounded-xl bg-primary/8 px-4 py-3 transition-colors hover:bg-primary/12"
+            className="group flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/10 px-4 py-3 transition-colors hover:border-primary/40 hover:bg-primary/15"
           >
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-wide text-primary">
@@ -68,7 +68,7 @@ export function RecommendedSection({
                 {nextProblem.title}
               </p>
             </div>
-            <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm">
+            <span className="aura-gradient inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-3 text-xs font-medium text-primary-foreground shadow-sm">
               Continue
               <ArrowRight className="size-3.5" />
             </span>
@@ -201,9 +201,9 @@ function ProgressBar({
   progress: LearningPathListItem["progress"];
 }) {
   return (
-    <div className="h-2 overflow-hidden rounded-full bg-muted">
+    <div className="stitch-progress h-2">
       <div
-        className="h-2 rounded-full bg-primary transition-all"
+        className="stitch-progress-fill h-2 transition-all"
         style={{
           width: `${Math.max(progress.progress_pct, progress.solved_count > 0 ? 4 : 0)}%`,
         }}
@@ -247,7 +247,7 @@ function ProblemRowMeta({
 
 export function RecommendedEmpty() {
   return (
-    <section className="panel-card flex flex-col bg-card">
+    <section className="panel-card flex flex-col">
       <div className="flex items-center gap-2 border-b border-border/50 px-4 py-3 md:px-5">
         <BookOpen className="size-4 text-primary" />
         <h2 className="text-sm font-semibold">Recommended for you</h2>

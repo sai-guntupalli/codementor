@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { getValidatedAccessToken } from "@/lib/auth-session";
 import { apiFetch, type LearningPathListItem } from "@/lib/api";
+import { getCached, setCached, invalidateCachePrefix } from "@/lib/api-cache";
 
 export default function LearnPage() {
   const router = useRouter();
@@ -31,10 +32,13 @@ export default function LearnPage() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
 
-  const loadPaths = useCallback(async (authToken: string) => {
-    const data = await apiFetch<LearningPathListItem[]>("/learning-paths", {
-      token: authToken,
-    });
+  const loadPaths = useCallback(async (authToken: string, force = false) => {
+    const cacheKey = "learning-paths";
+    let data = force ? null : getCached<LearningPathListItem[]>(cacheKey, authToken);
+    if (!data) {
+      data = await apiFetch<LearningPathListItem[]>("/learning-paths", { token: authToken });
+      setCached(cacheKey, authToken, data);
+    }
     setPaths(data);
   }, []);
 
@@ -99,6 +103,7 @@ export default function LearnPage() {
     if (!confirm("Delete this path? Problems in it will be removed from the path.")) return;
     try {
       await apiFetch(`/learning-paths/${pathId}`, { method: "DELETE", token });
+      invalidateCachePrefix("learning-paths");
       setPaths((prev) => prev.filter((p) => p.id !== pathId));
       setMenuPathId(null);
     } catch (err) {
@@ -117,6 +122,7 @@ export default function LearnPage() {
           body: JSON.stringify({ title: renameTitle.trim() }),
         }
       );
+      invalidateCachePrefix("learning-paths");
       setPaths((prev) => prev.map((p) => (p.id === pathId ? updated : p)));
       setRenamingId(null);
       setMenuPathId(null);
@@ -137,7 +143,7 @@ export default function LearnPage() {
     <AppShell>
       <PageContent width="xl" className="space-y-3">
         <PageHeader
-          icon={<BookOpen className="size-4" />}
+          icon={<BookOpen className="size-4 text-primary-foreground" />}
           title="Learning Paths"
           subtitle={
             summaryLine ||
@@ -194,7 +200,7 @@ export default function LearnPage() {
         </PageStatGrid>
 
         {showNewPath && token && (
-          <section className="panel-card bg-card p-3 md:p-4">
+          <section className="panel-card p-3 md:p-4">
             <p className="mb-3 text-xs font-medium text-muted-foreground">
               Create a custom path
             </p>
