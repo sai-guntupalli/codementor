@@ -196,7 +196,7 @@ function ThemeButton({
         "flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
         active
           ? "border-primary/50 bg-primary/15 text-primary"
-          : "border-white/10 bg-white/5 text-muted-foreground hover:text-foreground"
+          : "border-border bg-muted text-muted-foreground hover:border-primary/40 hover:text-foreground"
       )}
     >
       {icon}

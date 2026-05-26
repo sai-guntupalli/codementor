@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   BookOpen,
+  CheckCircle2,
+  ChevronRight,
   Flame,
   ListChecks,
   Play,
-  Sparkles,
+  Route,
   Star,
   Target,
   TrendingUp,
@@ -88,14 +90,6 @@ export default function DashboardPage() {
     load();
   }, [router]);
 
-  const skillEntries = useMemo(
-    () =>
-      Object.entries((profile?.skill_level as Record<string, number>) ?? {}).sort(
-        ([, a], [, b]) => b - a
-      ),
-    [profile?.skill_level]
-  );
-
   const recommendationSubtitle = useMemo(() => {
     if (!activePath) return undefined;
     if (activePath.type === "personalized") {
@@ -139,10 +133,10 @@ export default function DashboardPage() {
           <section className="panel-card overflow-hidden">
             <div className="relative px-5 py-6 md:px-8 md:py-8">
               <div
-                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-secondary/10"
+                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/6 via-transparent to-primary/3"
                 aria-hidden
               />
-              <p className="relative font-[family-name:var(--font-jetbrains-mono)] text-xs font-bold tracking-widest text-secondary uppercase">
+              <p className="relative font-[family-name:var(--font-jetbrains-mono)] text-xs font-bold tracking-widest text-primary uppercase">
                 Welcome back
               </p>
               <h1 className="relative mt-1 text-2xl font-bold tracking-tight md:text-3xl">
@@ -198,9 +192,10 @@ export default function DashboardPage() {
               hint={streak === 0 ? "Solve a problem today" : undefined}
             />
             <StatCard
-              icon={<Sparkles className="size-4 text-violet-500" />}
-              label="Skills"
-              value={`${skillEntries.length} tracked`}
+              icon={<Route className="size-4 text-violet-500" />}
+              label="Paths"
+              value={`${paths.length}`}
+              hint="learning paths"
             />
           </div>
 
@@ -213,7 +208,6 @@ export default function DashboardPage() {
             continueHref={continueHref}
             handleContinueClick={handleContinueClick}
             streak={streak}
-            skillEntries={skillEntries}
           />
         </div>
       </div>
@@ -244,7 +238,6 @@ function DashboardGrid({
   continueHref,
   handleContinueClick,
   streak,
-  skillEntries,
 }: {
   activePath: LearningPathListItem | null;
   activePathProblems: LearningPathProblemItem[];
@@ -254,7 +247,6 @@ function DashboardGrid({
   continueHref: string;
   handleContinueClick: () => void;
   streak: number;
-  skillEntries: [string, number][];
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-3 lg:gap-5">
@@ -274,10 +266,11 @@ function DashboardGrid({
       </div>
 
       <SidebarColumn
+        activePath={activePath}
+        activePathProblems={activePathProblems}
         continueHref={continueHref}
         handleContinueClick={handleContinueClick}
         streak={streak}
-        skillEntries={skillEntries}
       />
     </div>
   );
@@ -290,7 +283,7 @@ function RecentActivitySection({
 }) {
   return (
     <section className="panel-card">
-      <div className="flex items-center justify-between border-b border-border/50 px-4 py-3 md:px-5">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3 md:px-5">
         <div className="flex items-center gap-2">
           <TrendingUp className="size-4 text-primary" />
           <h2 className="text-sm font-semibold">Recent activity</h2>
@@ -345,16 +338,23 @@ function RecentActivitySection({
 }
 
 function SidebarColumn({
+  activePath,
+  activePathProblems,
   continueHref,
   handleContinueClick,
   streak,
-  skillEntries,
 }: {
+  activePath: LearningPathListItem | null;
+  activePathProblems: LearningPathProblemItem[];
   continueHref: string;
   handleContinueClick: () => void;
   streak: number;
-  skillEntries: [string, number][];
 }) {
+  const pathSolved = activePathProblems.filter((p) => p.solved).length;
+  const pathTotal = activePathProblems.length;
+  const pathPct = pathTotal > 0 ? Math.round((pathSolved / pathTotal) * 100) : 0;
+  const nextProblem = activePathProblems.find((p) => !p.solved) ?? null;
+
   return (
     <div className="space-y-4">
       {streak === 0 && (
@@ -376,35 +376,49 @@ function SidebarColumn({
         </section>
       )}
 
-      {skillEntries.length > 0 && (
+      {activePath && pathTotal > 0 && (
         <section className="panel-card p-4 md:p-5">
-          <h2 className="text-sm font-semibold">Skill progress</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Updates after each submission
-          </p>
-          <ul className="mt-4 space-y-3">
-            {skillEntries.slice(0, 8).map(([topic, level]) => {
-              const pct = Math.round(level * 100);
-              return (
-                <li key={topic}>
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="truncate text-xs font-medium capitalize">
-                      {topic.replace(/_/g, " ")}
-                    </span>
-                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                      {pct}%
-                    </span>
-                  </div>
-                  <div className="stitch-progress h-2">
-                    <div
-                      className="stitch-progress-fill h-2"
-                      style={{ width: `${Math.max(pct, 4)}%` }}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Route className="size-4 shrink-0 text-primary" />
+              <h2 className="text-sm font-semibold">Active path</h2>
+            </div>
+            <Link href="/learn" className="text-xs font-medium text-primary hover:underline">
+              Switch
+            </Link>
+          </div>
+          <p className="mt-1.5 text-xs font-medium text-foreground">{activePath.title}</p>
+
+          <div className="mt-3 space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>{pathSolved} of {pathTotal} complete</span>
+              <span className="tabular-nums font-medium text-foreground">{pathPct}%</span>
+            </div>
+            <div className="stitch-progress h-2">
+              <div
+                className="stitch-progress-fill h-2"
+                style={{ width: `${Math.max(pathPct, pathSolved > 0 ? 4 : 0)}%` }}
+              />
+            </div>
+          </div>
+
+          {nextProblem ? (
+            <Link
+              href={`/practice/${nextProblem.id}?path=${encodeURIComponent(activePath.id)}`}
+              onClick={handleContinueClick}
+              className="group mt-3 flex items-center gap-2 rounded-lg border border-border bg-muted/60 px-3 py-2 transition-colors hover:border-primary/30 hover:bg-primary/5"
+            >
+              <ChevronRight className="size-3.5 shrink-0 text-primary" />
+              <span className="min-w-0 flex-1 truncate text-xs font-medium group-hover:text-primary">
+                {nextProblem.title}
+              </span>
+            </Link>
+          ) : (
+            <div className="mt-3 flex items-center gap-1.5 text-xs text-emerald-600">
+              <CheckCircle2 className="size-3.5 shrink-0" />
+              Path complete
+            </div>
+          )}
         </section>
       )}
 
