@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Code2 } from "lucide-react";
+import { AuthCard, AuthFooterLink } from "@/components/ui/auth-card";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { apiFetch, type AuthResponse } from "@/lib/api";
@@ -53,15 +52,17 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="space-y-6 rounded-2xl border border-border/80 bg-card p-8 shadow-card">
-      <div className="flex flex-col items-center gap-2">
-        <div className="flex size-11 items-center justify-center rounded-xl bg-primary shadow-sm">
-          <Code2 className="h-5 w-5 text-primary-foreground" />
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight">Create account</h1>
-        <p className="text-sm text-muted-foreground">Start your coding journey</p>
-      </div>
-
+    <AuthCard
+      title="Create account"
+      subtitle="Start your coding journey with Sensei AI"
+      footer={
+        <AuthFooterLink
+          prompt="Already have an account?"
+          href="/login"
+          linkLabel="Sign in"
+        />
+      }
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1">
           <label htmlFor="email" className="text-sm font-medium">
@@ -74,7 +75,7 @@ export default function SignupPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm shadow-sm transition-colors focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+            className="stitch-input"
           />
         </div>
         <div className="space-y-1">
@@ -89,7 +90,7 @@ export default function SignupPage() {
             minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm shadow-sm transition-colors focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/30"
+            className="stitch-input"
           />
         </div>
 
@@ -103,13 +104,6 @@ export default function SignupPage() {
           {loading ? "Creating account…" : "Create account"}
         </Button>
       </form>
-
-      <p className="text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
-        <Link href="/login" className="font-medium text-primary hover:underline">
-          Sign in
-        </Link>
-      </p>
-    </div>
+    </AuthCard>
   );
 }

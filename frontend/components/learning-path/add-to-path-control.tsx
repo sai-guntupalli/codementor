@@ -9,6 +9,7 @@ import {
   type LearningPathListItem,
   type LearningPathProblemItem,
 } from "@/lib/api";
+import { getCached, setCached, invalidateCachePrefix } from "@/lib/api-cache";
 import { cn } from "@/lib/utils";
 import { NewPathForm } from "./new-path-form";
 
@@ -30,11 +31,16 @@ export function useCustomPaths(token: string | null) {
   const [membership, setMembership] = useState<MembershipMap>({});
   const [loading, setLoading] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (force = false) => {
     if (!token) return;
     setLoading(true);
     try {
-      const all = await apiFetch<LearningPathListItem[]>("/learning-paths", { token });
+      const cacheKey = "learning-paths";
+      let all = force ? null : getCached<LearningPathListItem[]>(cacheKey, token);
+      if (!all) {
+        all = await apiFetch<LearningPathListItem[]>("/learning-paths", { token });
+        setCached(cacheKey, token, all);
+      }
       const custom = all.filter((p) => p.type === "custom");
       setCustomPaths(custom);
 
@@ -45,10 +51,15 @@ export function useCustomPaths(token: string | null) {
 
       const entries = await Promise.all(
         custom.map(async (path) => {
-          const problems = await apiFetch<LearningPathProblemItem[]>(
-            `/learning-paths/${path.id}/problems`,
-            { token }
-          );
+          const probKey = `learning-paths/${path.id}/problems`;
+          let problems = force ? null : getCached<LearningPathProblemItem[]>(probKey, token);
+          if (!problems) {
+            problems = await apiFetch<LearningPathProblemItem[]>(
+              `/learning-paths/${path.id}/problems`,
+              { token }
+            );
+            setCached(probKey, token, problems);
+          }
           return [path.id, problems.map((p) => p.id)] as const;
         })
       );
@@ -58,11 +69,17 @@ export function useCustomPaths(token: string | null) {
     }
   }, [token]);
 
+  // Expose a hard-refresh (bypasses cache) for after mutations.
+  const forceRefresh = useCallback(() => {
+    invalidateCachePrefix("learning-paths");
+    return refresh(true);
+  }, [refresh]);
+
   useEffect(() => {
     refresh();
   }, [refresh]);
 
-  return { customPaths, membership, loading, refresh, setCustomPaths, setMembership };
+  return { customPaths, membership, loading, refresh: forceRefresh, setCustomPaths, setMembership };
 }
 
 export function AddToPathControl({
@@ -323,7 +340,7 @@ export function BulkAddBar({
   const bar = (
     <div
       ref={menuRef}
-      className="fixed inset-x-0 bottom-0 z-[100] border-t border-border bg-card/95 px-4 py-3 shadow-lg backdrop-blur-sm"
+      className="glass-panel fixed inset-x-0 bottom-0 z-[100] border-t border-white/10 px-4 py-3 shadow-lg"
     >
       <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3">
         <span className="text-sm font-medium">

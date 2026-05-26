@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.auth import router as auth_router
+from api.dashboard import router as dashboard_router
 from api.bookmarks import router as bookmarks_router
 from api.execute import router as execute_router
 from api.learning_paths import router as learning_paths_router
@@ -25,6 +26,7 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
+app.include_router(dashboard_router)
 app.include_router(auth_router)
 app.include_router(bookmarks_router)
 app.include_router(problems_router)

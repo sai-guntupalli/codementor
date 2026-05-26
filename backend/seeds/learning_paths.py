@@ -218,6 +218,62 @@ LEGACY_CURATED_TITLES = frozenset({"Python Fundamentals", "Interview Prep 101"})
 _DIFFICULTY_RANK = {"beginner": 0, "easy": 1, "medium": 2, "hard": 3}
 
 
+def _problem_sort_key(p: Problem, topic: str) -> tuple:
+    tags = p.topic or []
+    primary = tags[0] == topic if tags else False
+    return (
+        0 if primary else 1,
+        _DIFFICULTY_RANK.get(p.difficulty, 9),
+        p.sort_order is None,
+        p.sort_order if p.sort_order is not None else 999_999,
+        p.title.lower(),
+    )
+
+
+def _balanced_by_difficulty(
+    candidates: list[Problem],
+    difficulties: list[str],
+    max_problems: int,
+    topic: str,
+) -> list[Problem]:
+    """Spread slots across difficulty tiers; redistribute unfilled slots to tiers with overflow."""
+    buckets: dict[str, list[Problem]] = {d: [] for d in difficulties}
+    for p in candidates:
+        if p.difficulty in buckets:
+            buckets[p.difficulty].append(p)
+
+    for diff in difficulties:
+        buckets[diff].sort(key=lambda p: _problem_sort_key(p, topic))
+
+    n = len(difficulties)
+    base, extra = divmod(max_problems, n)
+    quotas = {d: base + (1 if i < extra else 0) for i, d in enumerate(difficulties)}
+
+    # Redistribute leftover slots (when a bucket has fewer items than its quota)
+    # to buckets with surplus, iterating until stable.
+    for _ in range(n):
+        leftover = sum(max(0, quotas[d] - len(buckets[d])) for d in difficulties)
+        if leftover == 0:
+            break
+        overflow = [d for d in difficulties if len(buckets[d]) > quotas[d]]
+        if not overflow:
+            break
+        per_bucket = leftover // len(overflow)
+        remainder = leftover % len(overflow)
+        for i, d in enumerate(overflow):
+            quotas[d] += per_bucket + (1 if i < remainder else 0)
+        # Clamp tiers that can't fill to their actual size
+        for d in difficulties:
+            quotas[d] = min(quotas[d], len(buckets[d]))
+
+    selected: list[Problem] = []
+    for diff in difficulties:
+        selected.extend(buckets[diff][: quotas[diff]])
+
+    selected.sort(key=lambda p: _problem_sort_key(p, topic))
+    return selected[:max_problems]
+
+
 def _problems_for_path(db: Session, spec: dict) -> list[Problem]:
     topic = spec["topic"]
     difficulties = spec.get("difficulties")
@@ -232,18 +288,10 @@ def _problems_for_path(db: Session, spec: dict) -> list[Problem]:
 
     candidates = q.all()
 
-    def sort_key(p: Problem) -> tuple:
-        tags = p.topic or []
-        primary = tags[0] == topic if tags else False
-        return (
-            0 if primary else 1,
-            _DIFFICULTY_RANK.get(p.difficulty, 9),
-            p.sort_order is None,
-            p.sort_order if p.sort_order is not None else 999_999,
-            p.title.lower(),
-        )
+    if difficulties and len(difficulties) > 1:
+        return _balanced_by_difficulty(candidates, difficulties, max_problems, topic)
 
-    candidates.sort(key=sort_key)
+    candidates.sort(key=lambda p: _problem_sort_key(p, topic))
     return candidates[:max_problems]
 
 

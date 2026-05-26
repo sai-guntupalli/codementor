@@ -121,8 +121,8 @@ function FilterPills({
             className={cn(
               "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
               value === opt.value
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border bg-muted/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                ? "border-primary/50 bg-primary/15 text-primary"
+                : "border-white/10 bg-white/5 text-muted-foreground hover:border-primary/30 hover:text-foreground"
             )}
           >
             {opt.label}
@@ -221,26 +221,9 @@ function ProblemsPageContent() {
     return () => clearTimeout(handle);
   }, [searchInput, token, filters.language, filters.difficulty]);
 
-  useEffect(() => {
-    async function authenticate() {
-      const supabase = createClient();
-      const t = await getValidatedAccessToken(supabase);
-      if (!t) {
-        router.replace("/login");
-        return;
-      }
-      setToken(t);
-      try {
-        const data = await apiFetch<SolvedProblemIdsOut>("/submissions/me/problem-ids", {
-          token: t,
-        });
-        setSolvedIds(new Set(data.solved_ids));
-      } catch {
-        /* non-critical */
-      }
-    }
-    authenticate();
-  }, [router]);
+  // True after the initial parallel load completes; prevents the filter/page
+  // effect from double-fetching when token state is first set.
+  const initialLoadDoneRef = useRef(false);
 
   const fetchData = useCallback(
     async (currentFilters: Filters, currentPage: number, authToken: string) => {
@@ -273,9 +256,33 @@ function ProblemsPageContent() {
     [router]
   );
 
+  // Initial load: auth + all three API calls fire in parallel.
   useEffect(() => {
-    if (token) fetchData(filters, page, token);
-  }, [token, filters, page, fetchData]);
+    async function init() {
+      const supabase = createClient();
+      const t = await getValidatedAccessToken(supabase);
+      if (!t) {
+        router.replace("/login");
+        return;
+      }
+      setToken(t);
+      await Promise.all([
+        fetchData(filters, page, t).then(() => { initialLoadDoneRef.current = true; }),
+        apiFetch<SolvedProblemIdsOut>("/submissions/me/problem-ids", { token: t })
+          .then((data) => setSolvedIds(new Set(data.solved_ids)))
+          .catch(() => {}),
+      ]);
+    }
+    init();
+    // filters/page are intentionally omitted — initial values only; changes handled below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
+
+  // Re-fetch when filters or page change after the initial load.
+  useEffect(() => {
+    if (!initialLoadDoneRef.current || !token) return;
+    fetchData(filters, page, token);
+  }, [filters, page, token, fetchData]);
 
   function updateFilters(patch: Partial<Filters>, resetPage = true) {
     const next = { ...filters, ...patch };
@@ -404,8 +411,8 @@ function ProblemsPageContent() {
           selectMode && selectedIds.size > 0 && "pb-24"
         )}
       >
-        <section className="panel-card bg-card">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 px-3 py-2.5 md:px-4">
+        <section className="panel-card">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-3 py-2.5 md:px-4">
             <div className="flex min-w-0 items-center gap-2.5">
               <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
                 <ListChecks className="size-4" />
@@ -603,7 +610,7 @@ function ProblemsPageContent() {
               selectMode && selectedIds.size > 0 && "fixed bottom-20 left-4 right-4 z-[101] mx-auto max-w-xl shadow-lg md:left-auto md:right-6",
               toast.variant === "error"
                 ? "border-destructive/20 bg-destructive/10 text-destructive"
-                : "border-border bg-card text-foreground"
+                : "border-white/10 glass-panel text-foreground"
             )}
           >
             {toast.message}
@@ -617,7 +624,7 @@ function ProblemsPageContent() {
         )}
 
         {loading && (
-          <ul className="divide-y divide-border/50 rounded-lg border border-border/50 bg-card">
+          <ul className="divide-y divide-border/50 rounded-lg border border-white/10 glass-panel">
             {Array.from({ length: 8 }).map((_, i) => (
               <li key={i} className="h-12 animate-pulse bg-muted/20" />
             ))}
@@ -625,7 +632,7 @@ function ProblemsPageContent() {
         )}
 
         {!loading && !error && problems.length === 0 && (
-          <div className="rounded-lg border border-border/50 bg-card px-4 py-8 text-center">
+          <div className="rounded-lg border border-white/10 glass-panel px-4 py-8 text-center">
             <p className="text-sm text-muted-foreground">
               {hasActiveFilters ? "No problems match your filters." : "No problems published yet."}
             </p>
@@ -634,9 +641,9 @@ function ProblemsPageContent() {
 
         {!loading && !error && problems.length > 0 && (
           <>
-            <ul className="divide-y divide-border/50 overflow-hidden rounded-lg border border-border/50 bg-card">
+            <ul className="divide-y divide-border/50 overflow-hidden rounded-lg border border-white/10 glass-panel">
               {selectMode && (
-                <li className="flex items-center gap-2 border-b border-border/50 bg-muted/20 px-3 py-2 md:px-4">
+                <li className="flex items-center gap-2 border-b border-white/10 bg-muted/20 px-3 py-2 md:px-4">
                   <input
                     ref={selectAllRef}
                     type="checkbox"

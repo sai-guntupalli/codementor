@@ -26,12 +26,11 @@ import { createClient } from "@/lib/supabase/client";
 import { getValidatedAccessToken } from "@/lib/auth-session";
 import {
   apiFetch,
+  type DashboardOut,
   type LearningPathListItem,
   type LearningPathProblemItem,
-  type ProblemFacets,
   type UserOut,
   type SubmissionHistoryItem,
-  type SolvedProblemIdsOut,
 } from "@/lib/api";
 import { setPracticePathContext } from "@/lib/learning-path-context";
 import {
@@ -47,8 +46,8 @@ export default function DashboardPage() {
   const [paths, setPaths] = useState<LearningPathListItem[]>([]);
   const [activePath, setActivePath] = useState<LearningPathListItem | null>(null);
   const [activePathProblems, setActivePathProblems] = useState<LearningPathProblemItem[]>([]);
-  const [solvedIds, setSolvedIds] = useState<Set<string>>(new Set());
-  const [libraryMeta, setLibraryMeta] = useState<ProblemFacets | null>(null);
+  const [solvedCount, setSolvedCount] = useState(0);
+  const [libraryTotal, setLibraryTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -60,42 +59,32 @@ export default function DashboardPage() {
         return;
       }
       try {
-        const [user, submissions, pathList, solved, meta] = await Promise.all([
-          apiFetch<UserOut>("/users/me", { token }),
-          apiFetch<SubmissionHistoryItem[]>("/submissions/me?limit=5", { token }),
-          apiFetch<LearningPathListItem[]>("/learning-paths", { token }),
-          apiFetch<SolvedProblemIdsOut>("/submissions/me/problem-ids", { token }).catch(
-            () => ({ solved_ids: [] as string[] })
-          ),
-          apiFetch<ProblemFacets>("/problems/facets", { token }).catch(() => null),
-        ]);
-        if (!user.is_profile_complete) {
+        const data = await apiFetch<DashboardOut>("/dashboard/me", { token });
+        if (!data.user.is_profile_complete) {
           router.replace("/profile/setup");
           return;
         }
-        setProfile(user);
-        setRecentSubmissions(submissions);
-        setPaths(pathList);
-        setSolvedIds(new Set(solved.solved_ids));
-        setLibraryMeta(meta);
-
-        const selected = pickActiveLearningPath(pathList);
-        setActivePath(selected);
-        if (selected) {
-          const problems = await apiFetch<LearningPathProblemItem[]>(
-            `/learning-paths/${selected.id}/problems`,
-            { token }
-          );
-          setActivePathProblems(problems);
-        } else {
-          setActivePathProblems([]);
-        }
+        applyDashboard(data);
       } catch {
         router.replace("/login");
       } finally {
         setLoading(false);
       }
     }
+
+    function applyDashboard(data: DashboardOut) {
+      setProfile(data.user);
+      setRecentSubmissions(data.recent_submissions);
+      setPaths(data.learning_paths);
+      setSolvedCount(data.solved_count);
+      setLibraryTotal(data.library_total);
+      const selected =
+        data.learning_paths.find((p) => p.id === data.active_path_id) ??
+        pickActiveLearningPath(data.learning_paths);
+      setActivePath(selected);
+      setActivePathProblems(data.active_path_problems);
+    }
+
     load();
   }, [router]);
 
@@ -107,8 +96,6 @@ export default function DashboardPage() {
     [profile?.skill_level]
   );
 
-  const solvedCount = solvedIds.size;
-
   const recommendationSubtitle = useMemo(() => {
     if (!activePath) return undefined;
     if (activePath.type === "personalized") {
@@ -119,7 +106,7 @@ export default function DashboardPage() {
   }, [activePath, profile?.coding_experience]);
 
   const continueHref = useMemo(() => {
-    const next = activePathProblems.find((p) => !solvedIds.has(p.id));
+    const next = activePathProblems.find((p) => !p.solved);
     if (next && activePath) {
       return `/practice/${next.id}?path=${encodeURIComponent(activePath.id)}`;
     }
@@ -128,7 +115,7 @@ export default function DashboardPage() {
     }
     if (recentSubmissions[0]) return `/practice/${recentSubmissions[0].problem_id}`;
     return "/problems";
-  }, [activePath, activePathProblems, recentSubmissions, solvedIds]);
+  }, [activePath, activePathProblems, recentSubmissions]);
 
   function handleContinueClick() {
     if (activePath) setPracticePathContext(activePath.id);
@@ -149,19 +136,25 @@ export default function DashboardPage() {
     <AppShell>
       <div className="workspace-canvas min-h-full">
         <div className="mx-auto max-w-6xl space-y-4 p-4 md:space-y-5 md:p-6">
-          <section className="panel-card overflow-hidden bg-card">
-            <div className="relative bg-gradient-to-br from-primary/15 via-card to-card px-5 py-6 md:px-8 md:py-8">
-              <p className="text-sm font-medium text-primary">Welcome back</p>
-              <h1 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
+          <section className="panel-card overflow-hidden">
+            <div className="relative px-5 py-6 md:px-8 md:py-8">
+              <div
+                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-secondary/10"
+                aria-hidden
+              />
+              <p className="relative font-[family-name:var(--font-jetbrains-mono)] text-xs font-bold tracking-widest text-secondary uppercase">
+                Welcome back
+              </p>
+              <h1 className="relative mt-1 text-2xl font-bold tracking-tight md:text-3xl">
                 Hi, {displayName}
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+              <p className="relative mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
                 {recommendationSubtitle ||
                   (activePath
                     ? `Continue ${activePath.title} — practice, get AI feedback, and unlock hints as you go.`
                     : "Pick up where you left off — practice, get AI feedback, and unlock hints as you go.")}
               </p>
-              <div className="mt-5 flex flex-wrap gap-2">
+              <div className="relative mt-5 flex flex-wrap gap-2">
                 <Link href={continueHref} onClick={handleContinueClick}>
                   <Button size="sm" className="gap-2 shadow-sm">
                     <Play className="size-3.5" />
@@ -171,8 +164,8 @@ export default function DashboardPage() {
                 </Link>
                 <Link href="/problems?sort=recommended">
                   <Button size="sm" variant="outline">
-                    {libraryMeta
-                      ? `Browse ${libraryMeta.total.toLocaleString()} problems`
+                    {libraryTotal != null
+                      ? `Browse ${libraryTotal.toLocaleString()} problems`
                       : "Browse problems"}
                   </Button>
                 </Link>
@@ -296,7 +289,7 @@ function RecentActivitySection({
   recentSubmissions: SubmissionHistoryItem[];
 }) {
   return (
-    <section className="panel-card bg-card">
+    <section className="panel-card">
       <div className="flex items-center justify-between border-b border-border/50 px-4 py-3 md:px-5">
         <div className="flex items-center gap-2">
           <TrendingUp className="size-4 text-primary" />
@@ -384,7 +377,7 @@ function SidebarColumn({
       )}
 
       {skillEntries.length > 0 && (
-        <section className="panel-card bg-card p-4 md:p-5">
+        <section className="panel-card p-4 md:p-5">
           <h2 className="text-sm font-semibold">Skill progress</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
             Updates after each submission
@@ -402,8 +395,11 @@ function SidebarColumn({
                       {pct}%
                     </span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${Math.max(pct, 4)}%` }} />
+                  <div className="stitch-progress h-2">
+                    <div
+                      className="stitch-progress-fill h-2"
+                      style={{ width: `${Math.max(pct, 4)}%` }}
+                    />
                   </div>
                 </li>
               );
@@ -412,7 +408,7 @@ function SidebarColumn({
         </section>
       )}
 
-      <section className="panel-card bg-card p-4 md:p-5">
+      <section className="panel-card p-4 md:p-5">
         <h2 className="text-sm font-semibold">Quick links</h2>
         <ul className="mt-3 space-y-1">
           <QuickLink href="/problems" icon={ListChecks} label="Problem library" />
@@ -436,7 +432,7 @@ function StatCard({
   hint?: string;
 }) {
   return (
-    <div className="panel-card flex flex-col justify-center bg-card px-4 py-3.5">
+    <div className="panel-card flex flex-col justify-center px-4 py-3.5">
       <div className="flex items-center gap-2.5">
         <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/80">
           {icon}

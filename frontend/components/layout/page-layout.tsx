@@ -49,11 +49,11 @@ export function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <section className="panel-card bg-card">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 px-3 py-2.5 md:px-4">
+    <section className="panel-card">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-3 py-2.5 md:px-4">
         <div className="flex min-w-0 items-center gap-2.5">
           {icon && (
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+            <span className="aura-gradient flex size-8 shrink-0 items-center justify-center rounded-lg text-primary-foreground shadow-sm">
               {icon}
             </span>
           )}
@@ -85,23 +85,29 @@ export function PageHero({
   children?: React.ReactNode;
 }) {
   return (
-    <section className="panel-card overflow-hidden bg-card">
-      <div className="relative bg-gradient-to-br from-primary/15 via-card to-card px-5 py-6 md:px-8 md:py-7">
+    <section className="panel-card overflow-hidden">
+      <div className="relative px-5 py-6 md:px-8 md:py-7">
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-secondary/10"
+          aria-hidden
+        />
         {icon && (
-          <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
+          <div className="relative mb-3 flex size-10 items-center justify-center rounded-xl aura-gradient text-primary-foreground shadow-md">
             {icon}
           </div>
         )}
         {eyebrow && (
-          <p className="text-sm font-medium text-primary">{eyebrow}</p>
+          <p className="relative font-[family-name:var(--font-jetbrains-mono)] text-xs font-bold tracking-widest text-secondary uppercase">
+            {eyebrow}
+          </p>
         )}
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
+        <h1 className="relative text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
         {description && (
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
+          <p className="relative mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
             {description}
           </p>
         )}
-        {children}
+        <div className="relative">{children}</div>
       </div>
     </section>
   );
@@ -123,8 +129,8 @@ export function PageSection({
   className?: string;
 }) {
   return (
-    <section className={cn("panel-card flex flex-col bg-card", className)}>
-      <div className="flex items-center justify-between border-b border-border/50 px-4 py-3 md:px-5">
+    <section className={cn("panel-card flex flex-col", className)}>
+      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 md:px-5">
         <div className="flex items-center gap-2">
           {icon}
           <div>
@@ -169,10 +175,10 @@ export function PageStat({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="panel-card flex flex-col justify-center bg-card px-4 py-3.5">
+    <div className="panel-card flex flex-col justify-center px-4 py-3.5">
       <div className="flex items-center gap-2.5">
         {icon && (
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/80">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5">
             {icon}
           </span>
         )}

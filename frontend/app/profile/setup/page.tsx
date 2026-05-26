@@ -76,9 +76,9 @@ function ProgressBar({ step }: { step: number }) {
         <span className="text-xs text-muted-foreground">Step {step} of {TOTAL_STEPS}</span>
         <span className="text-xs text-muted-foreground">{Math.round((step / TOTAL_STEPS) * 100)}%</span>
       </div>
-      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+      <div className="stitch-progress">
         <div
-          className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+          className="stitch-progress-fill"
           style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
         />
       </div>
@@ -100,13 +100,17 @@ function SelectionCard<T extends string>({
     <button
       type="button"
       onClick={() => onSelect(option.value)}
-      className={`flex items-center gap-4 w-full rounded-xl border p-4 text-left transition-all duration-150 ${
+      className={`flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-all duration-150 ${
         selected
-          ? "border-primary bg-primary/8 ring-1 ring-primary"
-          : "border-border hover:border-primary/40 hover:bg-muted/40"
+          ? "border-primary/50 bg-primary/10 ring-1 ring-primary/40"
+          : "border-white/10 bg-white/5 hover:border-primary/30 hover:bg-white/8"
       }`}
     >
-      <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+      <div
+        className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${
+          selected ? "aura-gradient text-primary-foreground" : "bg-white/5 text-muted-foreground"
+        }`}
+      >
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0">
@@ -141,7 +145,7 @@ function ProblemCard({ problem }: { problem: LearningPathProblem }) {
     <button
       type="button"
       onClick={() => router.push(problem.slug ? `/practice/${problem.id}` : `/practice/${problem.id}`)}
-      className="flex items-center gap-3 w-full rounded-lg border border-border/60 bg-card/50 px-4 py-3 text-left hover:border-primary/40 hover:bg-muted/30 transition-all duration-150"
+      className="flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-left transition-all duration-150 hover:border-primary/40 hover:bg-primary/10"
     >
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium truncate">{problem.title}</p>
@@ -220,11 +224,12 @@ export default function ProfileSetupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="flex flex-col items-center gap-2 mb-8">
-          <div className="flex size-12 items-center justify-center rounded-xl bg-primary shadow-sm">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-12">
+      <div className="living-glow pointer-events-none absolute top-[-20%] left-[-10%] h-[60%] w-[60%]" aria-hidden />
+      <div className="living-glow pointer-events-none absolute right-[-10%] bottom-[-20%] h-[60%] w-[60%]" aria-hidden />
+      <div className="relative w-full max-w-md">
+        <div className="mb-8 flex flex-col items-center gap-2">
+          <div className="aura-gradient flex size-12 items-center justify-center rounded-xl shadow-lg">
             <Code2 className="h-6 w-6 text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">
@@ -237,7 +242,7 @@ export default function ProfileSetupPage() {
           </p>
         </div>
 
-        <div className="rounded-2xl border bg-card p-7 shadow-sm">
+        <div className="glass-panel rounded-2xl p-7 shadow-2xl">
           {step < 5 && <ProgressBar step={step} />}
 
           {/* Step 1: Name + Role */}
@@ -254,7 +259,7 @@ export default function ProfileSetupPage() {
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="e.g. Sai"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring"
+                  className="stitch-input"
                 />
               </div>
               <div>

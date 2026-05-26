@@ -84,6 +84,7 @@ export default function SettingsPage() {
     <AppShell>
       <PageContent width="sm">
         <PageHero
+          eyebrow="Preferences"
           icon={<Settings className="size-5" />}
           title="Settings"
           description="Manage your profile and preferences."
@@ -194,8 +195,8 @@ function ThemeButton({
       className={cn(
         "flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
         active
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-border bg-background text-muted-foreground hover:text-foreground"
+          ? "border-primary/50 bg-primary/15 text-primary"
+          : "border-white/10 bg-white/5 text-muted-foreground hover:text-foreground"
       )}
     >
       {icon}

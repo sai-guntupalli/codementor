@@ -118,41 +118,7 @@ def list_learning_paths(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> list[LearningPathOut]:
     """List all paths visible to the current user with per-path progress."""
-    curated = (
-        db.query(LearningPath)
-        .filter(LearningPath.type == LearningPathType.curated)
-        .order_by(LearningPath.sort_order.asc().nullslast())
-        .all()
-    )
-    user_paths = (
-        db.query(LearningPath)
-        .filter(
-            LearningPath.created_by == current_user.id,
-            LearningPath.type.in_([LearningPathType.personalized, LearningPathType.custom]),
-        )
-        .all()
-    )
-
-    all_paths = curated + user_paths
-    solved_ids = _get_solved_ids(db, current_user.id)
-    progress_map = _batch_path_progress(db, [p.id for p in all_paths], solved_ids)
-
-    return [
-        LearningPathOut(
-            id=p.id,
-            title=p.title,
-            description=p.description,
-            type=p.type.value,
-            created_by=p.created_by,
-            is_public=p.is_public,
-            sort_order=p.sort_order,
-            created_at=p.created_at,
-            progress=progress_map.get(
-                p.id, LearningPathProgress(solved_count=0, total_count=0, progress_pct=0)
-            ),
-        )
-        for p in all_paths
-    ]
+    return list_paths_for_user(db, current_user)
 
 
 @router.post("", response_model=LearningPathOut, status_code=status.HTTP_201_CREATED)
@@ -216,16 +182,12 @@ def delete_learning_path(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/{path_id}/problems", response_model=list[LearningPathProblemItem])
-def list_path_problems(
+def fetch_path_problems(
+    db: Session,
     path_id: uuid.UUID,
-    db: Annotated[Session, Depends(get_db)],
-    current_user: Annotated[User, Depends(get_current_user)],
+    solved_ids: set[uuid.UUID],
 ) -> list[LearningPathProblemItem]:
-    """List problems in a learning path with solved status per problem."""
-    _get_path_or_404(db, path_id)
-    solved_ids = _get_solved_ids(db, current_user.id)
-
+    """Problems for a path in path order, with solved flags."""
     lpp_rows = (
         db.query(LearningPathProblem)
         .filter(LearningPathProblem.learning_path_id == path_id)
@@ -238,7 +200,7 @@ def list_path_problems(
     problems = db.query(Problem).filter(Problem.id.in_(problem_ids)).all()
     problem_map = {p.id: p for p in problems}
 
-    result = []
+    result: list[LearningPathProblemItem] = []
     for pid in problem_ids:
         p = problem_map.get(pid)
         if p is None:
@@ -255,6 +217,56 @@ def list_path_problems(
             )
         )
     return result
+
+
+def list_paths_for_user(db: Session, user: User) -> list[LearningPathOut]:
+    """All curated + user paths with batched progress (shared by list + dashboard)."""
+    curated = (
+        db.query(LearningPath)
+        .filter(LearningPath.type == LearningPathType.curated)
+        .order_by(LearningPath.sort_order.asc().nullslast())
+        .all()
+    )
+    user_paths = (
+        db.query(LearningPath)
+        .filter(
+            LearningPath.created_by == user.id,
+            LearningPath.type.in_([LearningPathType.personalized, LearningPathType.custom]),
+        )
+        .all()
+    )
+    all_paths = curated + user_paths
+    solved_ids = _get_solved_ids(db, user.id)
+    progress_map = _batch_path_progress(db, [p.id for p in all_paths], solved_ids)
+
+    return [
+        LearningPathOut(
+            id=p.id,
+            title=p.title,
+            description=p.description,
+            type=p.type.value,
+            created_by=p.created_by,
+            is_public=p.is_public,
+            sort_order=p.sort_order,
+            created_at=p.created_at,
+            progress=progress_map.get(
+                p.id, LearningPathProgress(solved_count=0, total_count=0, progress_pct=0)
+            ),
+        )
+        for p in all_paths
+    ]
+
+
+@router.get("/{path_id}/problems", response_model=list[LearningPathProblemItem])
+def list_path_problems(
+    path_id: uuid.UUID,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[LearningPathProblemItem]:
+    """List problems in a learning path with solved status per problem."""
+    _get_path_or_404(db, path_id)
+    solved_ids = _get_solved_ids(db, current_user.id)
+    return fetch_path_problems(db, path_id, solved_ids)
 
 
 @router.post(
